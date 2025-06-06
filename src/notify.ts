@@ -2,9 +2,11 @@ import {
   BotClient,
   BotEvent,
   handleNotification,
+  InstallationRecord,
 } from "@open-ic/openchat-botclient-ts";
 import type { APIGatewayProxyHandlerV2 } from "aws-lambda";
 import { factory } from "./factory";
+import { install, uninstall } from "./installation";
 import { chatModerate, platformModerate } from "./moderate";
 import { ModeratableContent } from "./types";
 
@@ -12,8 +14,30 @@ export const notify: APIGatewayProxyHandlerV2 = async (event) => {
   const resp = (await handleNotification(
     event.body,
     factory,
-    async (client: BotClient, ev: BotEvent) => {
+    async (client: BotClient, ev: BotEvent, apiGateway: string) => {
+      if (ev.kind === "bot_uninstalled_event") {
+        await uninstall(ev.location);
+        return { statusCode: 200 };
+      }
+
+      if (ev.kind === "bot_installed_event") {
+        await install(
+          ev.location,
+          new InstallationRecord(
+            apiGateway,
+            ev.grantedAutonomousPermissions,
+            ev.grantedCommandPermissions
+          )
+        );
+        return { statusCode: 200 };
+      }
+
       if (ev.kind === "bot_chat_event" && ev.eventType === "message") {
+        // is there any need to check whether the bot is installed at this point?
+        // I mean it *must* be otherwise we would not have received this event
+
+        // In which case, we actually have no reason to record installations at the moment. So that was a waste of time.
+        // We will need to store config though
         const eventIndex = ev.eventIndex;
         const resp = await client.chatEvents({
           kind: "chat_events_by_index",

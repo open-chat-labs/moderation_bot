@@ -1,4 +1,4 @@
-service: moderation_bot
+service: moderation-bot
 
 frameworkVersion: "4"
 

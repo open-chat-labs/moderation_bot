@@ -2,3 +2,4 @@ node_modules
 .serverless
 .env
 private_key.pem
+openchat-moderation-firebase-adminsdk-fbsvc-e17ee7044d.json

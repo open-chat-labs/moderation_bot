@@ -36,21 +36,21 @@ function schema() {
     },
     commands: [
       {
-        name: "/start",
+        name: "start",
         default_role: "Owner",
         description: "Start automatically moderating the messages in this chat",
         permissions: Permissions.encodePermissions(emptyPermissions),
         params: [],
       },
       {
-        name: "/stop",
+        name: "stop",
         default_role: "Owner",
         description: "Stop automatically moderating the messages in this chat",
         permissions: Permissions.encodePermissions(emptyPermissions),
         params: [],
       },
       {
-        name: "/status",
+        name: "status",
         default_role: "Owner",
         description:
           "Report whether the bot is current moderating this chat and the policy it is applying",
@@ -58,9 +58,10 @@ function schema() {
         params: [],
       },
       {
-        name: "/configure",
+        name: "configure",
         default_role: "Owner",
         description: "Update the configuration of the automated moderation",
+        permissions: Permissions.encodePermissions(emptyPermissions),
         params: [],
       },
     ],
