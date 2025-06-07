@@ -55,6 +55,6 @@ export type Policy = z.infer<typeof PolicySchema>;
 
 export const defaultPolicy: Policy = {
   moderating: true,
-  detection: { kind: "platform_and_chat" },
+  detection: { kind: "platform" },
   consequence: { kind: "reaction", reaction: "💩" },
 };

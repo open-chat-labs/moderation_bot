@@ -90,6 +90,7 @@ export async function chatModerate(
 ): Promise<boolean> {
   if (message.content.kind === "image_content") return false;
 
+  // TODO - current limitation is that this does not account for the community rules (if they exist)
   const summary = await client.chatSummary();
   if (summary.kind === "group_chat" && summary.rules.enabled) {
     const answer = await askOpenAI(summary.rules.text, message.content.text);
