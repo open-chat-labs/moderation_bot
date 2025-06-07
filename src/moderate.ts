@@ -28,7 +28,10 @@ export async function moderateMessage(
   eventIndex: number
 ): Promise<void> {
   const policy = await loadPolicy(client.scope);
-  if (!policy.moderating) return;
+  if (!policy.moderating) {
+    console.log("Skipping message as policy.moderating is set to false");
+    return;
+  }
 
   const resp = await client.chatEvents({
     kind: "chat_events_by_index",

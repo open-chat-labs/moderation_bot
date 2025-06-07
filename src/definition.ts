@@ -36,16 +36,16 @@ function schema() {
     },
     commands: [
       {
-        name: "start",
+        name: "resume",
         default_role: "Owner",
-        description: "Start automatically moderating the messages in this chat",
+        description: "Resume automatic moderation of the messages in this chat",
         permissions: Permissions.encodePermissions(emptyPermissions),
         params: [],
       },
       {
-        name: "stop",
+        name: "pause",
         default_role: "Owner",
-        description: "Stop automatically moderating the messages in this chat",
+        description: "Pause automatic moderation of the messages in this chat",
         permissions: Permissions.encodePermissions(emptyPermissions),
         params: [],
       },

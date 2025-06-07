@@ -45,6 +45,11 @@ function mapPolicy(doc: FirebaseFirestore.DocumentSnapshot): Policy {
   return parsed.data;
 }
 
+export async function updatePolicy(scope: ActionScope, policy: Policy) {
+  const docRef = db.collection("policy").doc(keyify(scope));
+  await docRef.set(policy, { merge: true });
+}
+
 export async function loadPolicy(scope: ActionScope): Promise<Policy> {
   const docRef = db.collection("policy").doc(keyify(scope));
   const doc = await docRef.get();

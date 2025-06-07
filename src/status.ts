@@ -13,7 +13,7 @@ export async function status(
   switch (policy.moderating) {
     case false:
       msg =
-        "I am not currently moderating messages in this chat. Use the `/start` command to resume moderation.";
+        "I am not currently moderating messages in this chat. Use the `/resume` command to resume moderation.";
       break;
     case true: {
       switch (policy.detection.kind) {
@@ -26,7 +26,7 @@ export async function status(
             "I am moderating messages in this chat against the platform rules and the chat rules.";
           break;
       }
-      msg += "\n\nUse the `/stop` command to stop moderating this chat.";
+      msg += "\n\nUse the `/pause` command to pause moderation of this chat.";
     }
   }
   return ephemeralResponse(client, msg);
