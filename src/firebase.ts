@@ -1,9 +1,11 @@
 import {
+  ActionScope,
   InstallationLocation,
   InstallationRecord,
 } from "@open-ic/openchat-botclient-ts";
 import { cert, getApp, getApps, initializeApp } from "firebase-admin/app";
 import { getFirestore, Transaction } from "firebase-admin/firestore";
+import { defaultPolicy, Policy, PolicySchema } from "./types";
 
 function initFirebaseApp() {
   if (getApps().length > 0) return getApp();
@@ -26,18 +28,35 @@ function initFirebaseApp() {
 const app = initFirebaseApp();
 const db = getFirestore(app);
 
-function serialiseLocation(location: InstallationLocation): string {
-  return Buffer.from(JSON.stringify(location)).toString("base64url");
+function keyify(thing: unknown): string {
+  return Buffer.from(JSON.stringify(thing)).toString("base64url");
 }
 
 export async function withTransaction(fn: (tx: Transaction) => Promise<void>) {
   await db.runTransaction(fn);
 }
 
+function mapPolicy(doc: FirebaseFirestore.DocumentSnapshot): Policy {
+  const parsed = PolicySchema.safeParse(doc.data());
+  if (!parsed.success) {
+    console.error("Failed to parse policy doc, returning default policy");
+    return defaultPolicy;
+  }
+  return parsed.data;
+}
+
+export async function loadPolicy(scope: ActionScope): Promise<Policy> {
+  const docRef = db.collection("policy").doc(keyify(scope));
+  const doc = await docRef.get();
+  if (!doc.exists) {
+    console.log("No policy found for this scope, returning default policy");
+    return defaultPolicy;
+  }
+  return mapPolicy(doc);
+}
+
 export async function saveUninstall(location: InstallationLocation) {
-  const docRef = db
-    .collection("installations")
-    .doc(serialiseLocation(location));
+  const docRef = db.collection("installations").doc(keyify(location));
 
   await docRef.delete();
 }
@@ -46,9 +65,7 @@ export async function saveInstall(
   location: InstallationLocation,
   record: InstallationRecord
 ) {
-  const docRef = db
-    .collection("installations")
-    .doc(serialiseLocation(location));
+  const docRef = db.collection("installations").doc(keyify(location));
 
   await docRef.set({
     apiGateway: record.apiGateway,

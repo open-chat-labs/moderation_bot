@@ -1,10 +1,8 @@
 import { BotClient } from "@open-ic/openchat-botclient-ts";
 import OpenAI from "openai";
-import { ModeratableContent } from "./types";
+import { loadPolicy } from "./firebase";
+import { ModeratableContent, Policy } from "./types";
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
-
-// play with the mode to configure how the bot responds to dodgy messages
-const mode: "react" | "delete" = "react";
 
 async function askOpenAI(rules: string, message: string) {
   const completion = await openai.chat.completions.create({
@@ -25,6 +23,43 @@ async function askOpenAI(rules: string, message: string) {
   return completion.choices[0].message.content;
 }
 
+export async function moderateMessage(
+  client: BotClient,
+  eventIndex: number
+): Promise<void> {
+  const policy = await loadPolicy(client.scope);
+  if (!policy.moderating) return;
+
+  const resp = await client.chatEvents({
+    kind: "chat_events_by_index",
+    eventIndexes: [eventIndex],
+  });
+  if (
+    resp.kind === "success" &&
+    resp.events[0].event.kind === "message" &&
+    (resp.events[0].event.content.kind === "text_content" ||
+      resp.events[0].event.content.kind === "image_content")
+  ) {
+    const message = resp.events[0].event as ModeratableContent;
+    let breaksChatRules = false;
+    const breaksPlatformRules = await platformModerate(client, message);
+    if (!breaksPlatformRules) {
+      if (policy.detection.kind === "platform_and_chat") {
+        breaksChatRules = await chatModerate(client, message);
+      }
+    }
+    if (breaksPlatformRules) {
+      console.log("Message broke platform rules: ", message.messageId);
+    }
+    if (breaksChatRules) {
+      console.log("Message broke chat rules: ", message.messageId);
+    }
+    if (breaksPlatformRules || breaksChatRules) {
+      await messageBreaksTheRules(policy, client, message.messageId);
+    }
+  }
+}
+
 export async function platformModerate(
   client: BotClient,
   message: ModeratableContent
@@ -39,7 +74,7 @@ export async function platformModerate(
   if (moderation.results.length > 0) {
     const result = moderation.results[0];
     if (result.flagged) {
-      await messageBreaksTheRules(client, message.messageId);
+      console.log("Moderation API result: ", result);
     }
     return result.flagged;
   }
@@ -52,35 +87,31 @@ export async function chatModerate(
 ): Promise<boolean> {
   if (message.content.kind === "image_content") return false;
 
-  //  We could store the rules ourselves and subscribe to rules changed events. But
-  // given that this is a lambda and we have to load the state every time would it really
-  // be any better than just retrieving it from the OC backend?
-
-  // TODO - we need to account for the community rules _and_ the chat rules
   const summary = await client.chatSummary();
   if (summary.kind === "group_chat" && summary.rules.enabled) {
     const answer = await askOpenAI(summary.rules.text, message.content.text);
-    if (answer === "Yes") {
-      await messageBreaksTheRules(client, message.messageId);
-      return true;
-    }
+    return answer === "Yes";
   }
   return Promise.resolve(false);
 }
 
-async function messageBreaksTheRules(client: BotClient, messageId: bigint) {
-  switch (mode) {
-    case "react":
+async function messageBreaksTheRules(
+  policy: Policy,
+  client: BotClient,
+  messageId: bigint
+) {
+  switch (policy.consequence.kind) {
+    case "reaction":
       {
         const resp = await client
-          .addReaction(messageId, "💩")
+          .addReaction(messageId, policy.consequence.reaction)
           .catch((err) => console.error("Error reacting to message", err));
         if (resp?.kind !== "success") {
           console.error("Error reacting to message: ", resp);
         }
       }
       break;
-    case "delete":
+    case "deletion":
       {
         const resp = await client
           .deleteMessages([messageId])

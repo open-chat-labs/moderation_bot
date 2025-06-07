@@ -7,8 +7,7 @@ import {
 import type { APIGatewayProxyHandlerV2 } from "aws-lambda";
 import { factory } from "./factory";
 import { install, uninstall } from "./installation";
-import { chatModerate, platformModerate } from "./moderate";
-import { ModeratableContent } from "./types";
+import { moderateMessage } from "./moderate";
 
 export const notify: APIGatewayProxyHandlerV2 = async (event) => {
   const resp = (await handleNotification(
@@ -33,35 +32,7 @@ export const notify: APIGatewayProxyHandlerV2 = async (event) => {
       }
 
       if (ev.kind === "bot_chat_event" && ev.eventType === "message") {
-        // is there any need to check whether the bot is installed at this point?
-        // I mean it *must* be otherwise we would not have received this event
-
-        // In which case, we actually have no reason to record installations at the moment. So that was a waste of time.
-        // We will need to store config though
-        const eventIndex = ev.eventIndex;
-        const resp = await client.chatEvents({
-          kind: "chat_events_by_index",
-          eventIndexes: [eventIndex],
-        });
-        if (
-          resp.kind === "success" &&
-          resp.events[0].event.kind === "message" &&
-          (resp.events[0].event.content.kind === "text_content" ||
-            resp.events[0].event.content.kind === "image_content")
-        ) {
-          const message = resp.events[0].event as ModeratableContent;
-          let breaksChatRules = false;
-          const breaksPlatformRules = await platformModerate(client, message);
-          if (!breaksPlatformRules) {
-            breaksChatRules = await chatModerate(client, message);
-          }
-          if (breaksPlatformRules) {
-            console.log("Message broke platform rules: ", message.messageId);
-          }
-          if (breaksChatRules) {
-            console.log("Message broke chat rules: ", message.messageId);
-          }
-        }
+        await moderateMessage(client, ev.eventIndex);
       }
       return {
         statusCode: 200,

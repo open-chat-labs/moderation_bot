@@ -17,6 +17,7 @@
   "dependencies": {
     "@open-ic/openchat-botclient-ts": "^1.0.44",
     "firebase-admin": "^13.4.0",
-    "openai": "^4.85.1"
+    "openai": "^4.85.1",
+    "zod": "^3.25.56"
   }
 }
