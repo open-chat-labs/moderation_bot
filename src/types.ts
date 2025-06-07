@@ -58,3 +58,7 @@ export const defaultPolicy: Policy = {
   detection: { kind: "platform" },
   consequence: { kind: "reaction", reaction: "💩" },
 };
+
+// TODO - maybe we add something like a "temperature" param which we can apply to the platform rules so they can be
+// toned down across the board (with some exceptions)
+// And maybe we call them general rules or common sense rules rather than platform rules
