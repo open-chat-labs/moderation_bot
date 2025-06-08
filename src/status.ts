@@ -29,9 +29,9 @@ export async function status(
 function detectionClause(policy: Policy): string {
   switch (policy.detection.kind) {
     case "platform":
-      return "I am moderating messages in this chat against the platform rules.";
+      return `I am moderating messages in this chat against the platform rules with a threshold of ${policy.threshold}.`;
     case "platform_and_chat":
-      return "I am moderating messages in this chat against the platform rules and the chat rules.";
+      return `I am moderating messages in this chat against the platform rules with a threshold of ${policy.threshold} and the chat rules.`;
   }
 }
 

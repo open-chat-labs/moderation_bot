@@ -9,6 +9,7 @@ export async function configure(
   const detectionMode = client.stringArg("detection_mode");
   const consquenceMode = client.stringArg("consequence_mode");
   const reaction = client.stringArg("reaction");
+  const threshold = client.decimalArg("threshold") ?? 0.8;
   const policy = await loadPolicy(client.scope);
   policy.detection =
     detectionMode === "platform"
@@ -18,6 +19,7 @@ export async function configure(
     consquenceMode === "deletion"
       ? { kind: "deletion" }
       : { kind: "reaction", reaction: reaction ?? "💩" };
+  policy.threshold = threshold;
 
   await updatePolicy(client.scope, policy);
 

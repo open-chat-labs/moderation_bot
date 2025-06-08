@@ -125,6 +125,21 @@ function schema(): BotDefinition {
               },
             },
           },
+          {
+            name: "threshold",
+            required: false,
+            description:
+              "This is the category threshold above which a message will be considered unacceptable. It should be a value between 0 and 1 with 0 being the most strict and 1 being the most permissive.",
+            placeholder:
+              "Enter a threshold value. 0.8 is probably a good default.",
+            param_type: {
+              DecimalParam: {
+                min_value: 0,
+                max_value: 1,
+                choices: [],
+              },
+            },
+          },
         ],
       },
     ],

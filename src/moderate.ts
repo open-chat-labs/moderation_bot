@@ -45,7 +45,7 @@ export async function moderateMessage(
   ) {
     const message = resp.events[0].event as ModeratableContent;
     let breaksChatRules = false;
-    const breaksPlatformRules = await platformModerate(client, message);
+    const breaksPlatformRules = await platformModerate(policy, message);
     if (!breaksPlatformRules) {
       if (policy.detection.kind === "platform_and_chat") {
         breaksChatRules = await chatModerate(client, message);
@@ -63,8 +63,30 @@ export async function moderateMessage(
   }
 }
 
+function anyCategoryBreaksThreshold(
+  threshold: number,
+  scores: OpenAI.Moderation.CategoryScores
+): boolean {
+  const scoreValues = [
+    scores.harassment,
+    scores["harassment/threatening"],
+    scores.hate,
+    scores["hate/threatening"],
+    scores.illicit,
+    scores["illicit/violent"],
+    scores["self-harm"],
+    scores["self-harm/instructions"],
+    scores["self-harm/intent"],
+    scores.sexual,
+    scores["sexual/minors"],
+    scores.violence,
+    scores["violence/graphic"],
+  ];
+  return scoreValues.some((v) => v >= threshold);
+}
+
 export async function platformModerate(
-  client: BotClient,
+  policy: Policy,
   message: ModeratableContent
 ): Promise<boolean> {
   // we *should* be able to moderate images as well but it's a bit tricky in dev environment
@@ -76,10 +98,14 @@ export async function platformModerate(
   });
   if (moderation.results.length > 0) {
     const result = moderation.results[0];
-    if (result.flagged) {
-      console.log("Moderation API result: ", result);
+    const breaking = anyCategoryBreaksThreshold(
+      policy.threshold,
+      result.category_scores
+    );
+    if (breaking) {
+      console.log("Moderation API result: ", result.category_scores);
     }
-    return result.flagged;
+    return breaking;
   }
   return Promise.resolve(false);
 }

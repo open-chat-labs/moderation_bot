@@ -49,6 +49,7 @@ export const PolicySchema = z.object({
   moderating: z.boolean(),
   detection: DetectionSchema,
   consequence: ConsequenceSchema,
+  threshold: z.number(),
 });
 
 export type Policy = z.infer<typeof PolicySchema>;
@@ -57,6 +58,7 @@ export const defaultPolicy: Policy = {
   moderating: true,
   detection: { kind: "platform" },
   consequence: { kind: "reaction", reaction: "💩" },
+  threshold: 0.8,
 };
 
 // TODO - maybe we add something like a "temperature" param which we can apply to the platform rules so they can be
