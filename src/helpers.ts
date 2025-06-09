@@ -61,7 +61,13 @@ export function createCommandChatClient(token: string): BotClient {
   return client;
 }
 
-export async function ephemeralResponse(client: BotClient, txt: string) {
-  const msg = (await client.createTextMessage(txt)).makeEphemeral();
+export async function ephemeralResponse(
+  client: BotClient,
+  txt: string,
+  blm: boolean = false
+) {
+  const msg = (await client.createTextMessage(txt))
+    .makeEphemeral()
+    .setBlockLevelMarkdown(blm);
   return success(msg);
 }

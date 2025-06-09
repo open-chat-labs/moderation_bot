@@ -17,7 +17,7 @@ const emptyPermissions = {
 function schema(): BotDefinition {
   return {
     description:
-      "This bot will perform automated moderation in your community. It will approximately enforce the OpenChat platform rules and also attempt to account for community and chat rules. If a message is found to violate the rules, you can configure the bot to either delete the message immediately or just add the reaction of your choice to the message. This is useful so that you can get a feel for how the bot behaves before you allow it to start deleting messages. In the future we can add more sophisticated responses. e.g. it will be possible to warn people one or more times before deleting their messages and to ultimately block persistent offenders.\n\nNote that this bot uses OpenAI's moderation and completiong APIs for classification. This means that message data will be sent to OpenAI so you should only trust this bot to the extent that you trust OpenAI.",
+      "This bot will perform automated moderation in your community. \n\nIt can be configured to apply general purpose moderation according to [OpenAI's standard content classifications](https://platform.openai.com/docs/guides/moderation#content-classifications) and also to account for the specific rules in your groups and communities. \n\nIf a message is found to violate the rules, you can configure the bot to either delete the message immediately or just add the reaction of your choice to the message. This is useful so that you can get a feel for how the bot behaves before you allow it to start deleting messages. In the future we can add more sophisticated responses. e.g. it will be possible to warn people one or more times before deleting their messages and to ultimately block persistent offenders.\n\nNote that this bot uses OpenAI's moderation and completiong APIs for classification. This means that message data will be sent to OpenAI so you should only trust this bot to the extent that you trust OpenAI.",
     autonomous_config: {
       permissions: Permissions.encodePermissions({
         ...emptyPermissions,
@@ -58,35 +58,44 @@ function schema(): BotDefinition {
         params: [],
       },
       {
-        name: "configure",
+        name: "rules",
         default_role: "Owner",
-        description: "Update the configuration of the automated moderation",
+        description: "Update the strategy used for moderating messages.",
         permissions: Permissions.encodePermissions(emptyPermissions),
         params: [
           {
-            name: "detection_mode",
+            name: "strategy",
             required: true,
-            description:
-              "The rules to apply to messages moderation in this chat",
+            description: "The strategy used to moderate messages",
             placeholder:
-              "Select the rules to apply to message moderation in this chat",
+              "Select the strategy to use to moderate messages in this chat",
             param_type: {
               StringParam: {
                 min_length: 1,
                 max_length: 1000,
                 choices: [
-                  { name: "Platform rules", value: "platform" },
+                  { name: "Platform rules", value: "platform_rules" },
+                  { name: "Chat rules", value: "chat_rules" },
                   {
                     name: "Platform rules and chat rules",
-                    value: "platform_and_chat",
+                    value: "platform_and_chat_rules",
                   },
                 ],
                 multi_line: false,
               },
             },
           },
+        ],
+      },
+      {
+        name: "consequences",
+        default_role: "Owner",
+        description:
+          "Update the bot's behaviour when a message violates the rules",
+        permissions: Permissions.encodePermissions(emptyPermissions),
+        params: [
           {
-            name: "consequence_mode",
+            name: "consequence",
             required: true,
             description: "What to do with a message that breaks the rules",
             placeholder:
@@ -125,9 +134,17 @@ function schema(): BotDefinition {
               },
             },
           },
+        ],
+      },
+      {
+        name: "threshold",
+        default_role: "Owner",
+        description: "Set the thresholds used when applying platform rules",
+        permissions: Permissions.encodePermissions(emptyPermissions),
+        params: [
           {
             name: "threshold",
-            required: false,
+            required: true,
             description:
               "This is the category threshold above which a message will be considered unacceptable. It should be a value between 0 and 1 with 0 being the most strict and 1 being the most permissive.",
             placeholder:

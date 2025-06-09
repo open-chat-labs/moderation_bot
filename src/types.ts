@@ -31,16 +31,21 @@ const ConsequenceSchema = z.discriminatedUnion("kind", [
 export type ConsequenceMode = z.infer<typeof ConsequenceSchema>;
 
 const PlatformRulesSchema = z.object({
-  kind: z.literal("platform"),
+  kind: z.literal("platform_rules"),
+});
+
+const ChatRulesSchema = z.object({
+  kind: z.literal("chat_rules"),
 });
 
 const PlatformAndChatRulesSchema = z.object({
-  kind: z.literal("platform_and_chat"),
+  kind: z.literal("platform_and_chat_rules"),
 });
 
 const DetectionSchema = z.discriminatedUnion("kind", [
   PlatformRulesSchema,
   PlatformAndChatRulesSchema,
+  ChatRulesSchema,
 ]);
 
 export type DetectionMode = z.infer<typeof DetectionSchema>;
@@ -56,7 +61,7 @@ export type Policy = z.infer<typeof PolicySchema>;
 
 export const defaultPolicy: Policy = {
   moderating: true,
-  detection: { kind: "platform" },
+  detection: { kind: "platform_rules" },
   consequence: { kind: "reaction", reaction: "💩" },
   threshold: 0.8,
 };

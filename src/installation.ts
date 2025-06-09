@@ -8,16 +8,11 @@ export async function install(
   location: InstallationLocation,
   record: InstallationRecord
 ): Promise<void> {
-  // as soon as we install we should start getting events
-  // and we will start moderating immediately with the default
-  // config
-
-  // if we receive a message we will look up the config for the
-  // scope - if there isn't one we will apply the default config
-  // if there is one we use it.
   await saveInstall(location, record);
 }
 
 export async function uninstall(location: InstallationLocation): Promise<void> {
+  // TODO when we uninstall it would be good to be able to delete all relevant policies
+  // not sure we have the right data structure for that at the moment
   await saveUninstall(location);
 }

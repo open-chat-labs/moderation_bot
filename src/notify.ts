@@ -32,7 +32,7 @@ export const notify: APIGatewayProxyHandlerV2 = async (event) => {
       }
 
       if (ev.kind === "bot_chat_event" && ev.eventType === "message") {
-        await moderateMessage(client, ev.eventIndex);
+        await moderateMessage(client, ev.eventIndex, ev.thread);
       }
       return {
         statusCode: 200,

@@ -18,20 +18,40 @@ export async function status(
       );
       break;
     case true: {
-      msgs.push(detectionClause(policy));
+      msgs = msgs.concat(detectionClause(policy));
       msgs.push(consequenceClause(policy));
       msgs.push("Use the `/pause` command to pause moderation of this chat.");
     }
   }
-  return ephemeralResponse(client, msgs.join("\n\n"));
+  return ephemeralResponse(client, msgs.join("\n\n"), true);
 }
 
-function detectionClause(policy: Policy): string {
+function progressBar(score: number, width = 20): string {
+  const filled = Math.round(score * width);
+  const empty = width - filled;
+  return `\`strict < ${"█".repeat(filled)}${"░".repeat(
+    empty
+  )} > permissive ${score.toFixed(2)}\``;
+}
+
+function detectionClause(policy: Policy): string[] {
   switch (policy.detection.kind) {
-    case "platform":
-      return `I am moderating messages in this chat against the platform rules with a threshold of ${policy.threshold}.`;
-    case "platform_and_chat":
-      return `I am moderating messages in this chat against the platform rules with a threshold of ${policy.threshold} and the chat rules.`;
+    case "chat_rules":
+      return [`I am moderating messages in this chat against the chat rules.`];
+    case "platform_rules":
+      return [
+        `I am moderating messages in this chat against the platform rules`,
+        "Higher threshold values make me more permissive",
+        progressBar(policy.threshold),
+        `General rules are evaluated using the [OpenAI standard classification](https://platform.openai.com/docs/guides/moderation#content-classifications).`,
+      ];
+    case "platform_and_chat_rules":
+      return [
+        `I am moderating messages in this chat against the platform rules and the chat rules.`,
+        "Higher threshold values make me more permissive",
+        progressBar(policy.threshold),
+        `General rules are evaluated using the [OpenAI standard classification](https://platform.openai.com/docs/guides/moderation#content-classifications).`,
+      ];
   }
 }
 
