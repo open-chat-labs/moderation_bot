@@ -1,26 +1,34 @@
-import { BotClient, MessageContent } from "@open-ic/openchat-botclient-ts";
+import {
+  ActionScope,
+  BotClient,
+  MessageContent,
+} from "@open-ic/openchat-botclient-ts";
 import OpenAI from "openai";
-import { loadPolicy } from "./firebase";
-import { Policy } from "./types";
+import { loadPolicy, saveModerationEvent } from "./firebase";
+import { CategoryViolation, Moderated, Moderation, Policy } from "./types";
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 
 const systemPrompt = `
-You are a chat moderation assistant. Your job is to decide whether a message should be allowed, based on chat rules, the type of message (text, image, video, etc.), and the message context (either a top-level chat or a thread).
+You are a rule-based chat moderation assistant.
 
-You will be provided with:
-- Chat moderation rules
-- The message type (text, image, video etc)
-- The message context (whether it was posted directly in the main chat or inside a thread)
-- The message content 
+Your job is to decide whether a message should be allowed, based solely on:
+- The provided chat rules
+- The message type (text, image, video, etc.)
+- The context (chat or thread)
+- The message content
 
-Follow this process:
-1. Evaluate the message against the rules.
-2. Decide whether it is allowed or should be blocked.
-3. Provide a brief explanation.
+Instructions:
+- Only enforce what's *explicitly* in the rules.
+- Do not interpret, assume, or generalise.
+- Do not apply moral, ethical, or safety judgements unless clearly stated in a rule.
+- If a rule doesn’t apply directly, allow the message.
 
-Rules may include behavioural norms (e.g., "no abuse"), content-specific norms (e.g., "no media in chat"), or structural expectations (e.g., "discussions should happen in threads").
+Examples:
+- If rules ban dog content, but the message doesn’t mention dogs — allow it.
+- If the message is abusive, but no rule bans abuse — allow it.
+- If media is banned in chat, but this is an image in a thread — allow it.
 
-Be strict in applying rules that are easy to verify (like message type and message context). Be more lenient with ambiguous social norms unless there's clear evidence.
+When in doubt, allow the message.
 
 Output format (JSON):
 {
@@ -46,8 +54,10 @@ async function askOpenAI(
   rules: string,
   message: string | undefined,
   contentHint: string,
+  scope: ActionScope,
+  messageId: bigint,
   thread?: number
-): Promise<boolean> {
+): Promise<Moderation> {
   const msg = userMessage(
     thread ? "Thread (not chat)" : "Chat (not thread)",
     rules,
@@ -72,12 +82,13 @@ async function askOpenAI(
   const completion = await openai.chat.completions.create(prompt);
   if (completion.choices[0].message.content !== undefined) {
     const json = JSON.parse(completion.choices[0].message.content as string);
-    if (!json.allowed) {
-      console.log(json.reason);
+    if (json.allowed) {
+      return { kind: "not_moderated" };
+    } else {
+      return { kind: "moderated", reason: json.reason, scope, messageId };
     }
-    return !json.allowed;
   }
-  return false;
+  return { kind: "not_moderated" };
 }
 
 // It is quite common for chat rules to forbid certain types of message in the main chat but allow
@@ -137,33 +148,29 @@ export async function moderateMessage(
     const content = extractFromContent(resp.events[0].event.content);
     if (content !== undefined) {
       const [txt, hint] = content;
-      let breaksChatRules = false;
-      let breaksPlatformRules = false;
+
+      let result: Moderation = { kind: "not_moderated" };
       if (policy.detection.kind !== "chat_rules" && txt !== undefined) {
-        breaksPlatformRules = await platformModerate(policy, txt);
+        result = await platformModerate(client, policy, txt, messageId);
       }
-      if (!breaksPlatformRules) {
+      if (result.kind === "not_moderated") {
         if (policy.detection.kind !== "platform_rules") {
-          breaksChatRules = await chatModerate(client, txt, hint, thread);
+          result = await chatModerate(client, txt, hint, messageId, thread);
         }
       }
-      if (breaksPlatformRules) {
-        console.log("Message broke platform rules: ", txt);
-      }
-      if (breaksChatRules) {
-        console.log("Message broke chat rules: ", txt, hint);
-      }
-      if (breaksPlatformRules || breaksChatRules) {
-        await messageBreaksTheRules(policy, client, messageId, thread);
+
+      console.log("Moderation result: ", result);
+      if (result.kind === "moderated") {
+        await messageBreaksTheRules(client, policy, result, thread);
       }
     }
   }
 }
 
-function anyCategoryBreaksThreshold(
+function categoriesThatBreakThreshold(
   threshold: number,
   scores: OpenAI.Moderation.CategoryScores
-): boolean {
+): CategoryViolation[] {
   const scoreValues = [
     scores.harassment,
     scores["harassment/threatening"],
@@ -179,13 +186,31 @@ function anyCategoryBreaksThreshold(
     scores.violence,
     scores["violence/graphic"],
   ];
-  return scoreValues.some((v) => v >= threshold);
+  const violating: CategoryViolation[] = [];
+  for (const [cat, score] of Object.entries(scores)) {
+    if (score >= threshold) {
+      violating.push({ category: cat, score: Number(score) });
+    }
+  }
+  return violating;
+}
+
+function summariseViolations(violations: CategoryViolation[]): string {
+  const msgs: string[] = [
+    "The message crossed the moderation threshold for the following categories:\n",
+  ];
+  violations.forEach((v) => {
+    msgs.push(`${v.category} (${v.score})`);
+  });
+  return msgs.join("\n");
 }
 
 export async function platformModerate(
+  client: BotClient,
   policy: Policy,
-  text: string
-): Promise<boolean> {
+  text: string,
+  messageId: bigint
+): Promise<Moderation> {
   console.log("Message text: ", text);
 
   const moderation = await openai.moderations.create({
@@ -194,49 +219,58 @@ export async function platformModerate(
   });
   if (moderation.results.length > 0) {
     const result = moderation.results[0];
-    const breaking = anyCategoryBreaksThreshold(
+    const breaking = categoriesThatBreakThreshold(
       policy.threshold,
       result.category_scores
     );
-    if (breaking) {
-      console.log("Moderation API result: ", result.category_scores);
+    if (breaking.length > 0) {
+      return {
+        kind: "moderated",
+        messageId,
+        scope: client.scope,
+        reason: summariseViolations(breaking),
+      };
     }
-    return breaking;
+    return { kind: "not_moderated" };
   }
-  return Promise.resolve(false);
+  return { kind: "not_moderated" };
 }
 
 export async function chatModerate(
   client: BotClient,
   text: string | undefined,
   contentHint: string,
+  messageId: bigint,
   thread?: number
-): Promise<boolean> {
+): Promise<Moderation> {
   // TODO - current limitation is that this does not account for the community rules (if they exist)
   const summary = await client.chatSummary();
   if (summary.kind === "group_chat" && summary.rules.enabled) {
-    const forbidden = await askOpenAI(
+    const result = await askOpenAI(
       summary.rules.text,
       text,
       contentHint,
+      client.scope,
+      messageId,
       thread
     );
-    return forbidden;
+    return result;
   }
-  return Promise.resolve(false);
+  return Promise.resolve({ kind: "not_moderated" });
 }
 
 async function messageBreaksTheRules(
-  policy: Policy,
   client: BotClient,
-  messageId: bigint,
+  policy: Policy,
+  moderated: Moderated,
   thread?: number
 ) {
+  await saveModerationEvent(moderated);
   switch (policy.consequence.kind) {
     case "reaction":
       {
         const resp = await client
-          .addReaction(messageId, policy.consequence.reaction, thread)
+          .addReaction(moderated.messageId, policy.consequence.reaction, thread)
           .catch((err) => console.error("Error reacting to message", err));
         if (resp?.kind !== "success") {
           console.error("Error reacting to message: ", resp);
@@ -246,7 +280,7 @@ async function messageBreaksTheRules(
     case "deletion":
       {
         const resp = await client
-          .deleteMessages([messageId], thread)
+          .deleteMessages([moderated.messageId], thread)
           .catch((err) => console.error("Error deleting message", err));
         if (resp?.kind !== "success") {
           console.error("Error deleting message: ", resp);

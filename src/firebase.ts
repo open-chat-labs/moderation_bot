@@ -5,7 +5,7 @@ import {
 } from "@open-ic/openchat-botclient-ts";
 import { cert, getApp, getApps, initializeApp } from "firebase-admin/app";
 import { getFirestore, Transaction } from "firebase-admin/firestore";
-import { defaultPolicy, Policy, PolicySchema } from "./types";
+import { defaultPolicy, Moderated, Policy, PolicySchema } from "./types";
 
 function initFirebaseApp() {
   if (getApps().length > 0) return getApp();
@@ -43,6 +43,31 @@ function mapPolicy(doc: FirebaseFirestore.DocumentSnapshot): Policy {
     return defaultPolicy;
   }
   return parsed.data;
+}
+
+export async function saveModerationEvent(mod: Moderated) {
+  const scopeKey = keyify(mod.scope);
+  const key = `${scopeKey}_${mod.messageId}`;
+  const docRef = db.collection("moderation_events").doc(key);
+  await docRef.set({
+    reason: mod.reason,
+  });
+}
+
+export async function loadModerationEvent(
+  scope: ActionScope,
+  messageId: bigint
+): Promise<string | undefined> {
+  const scopeKey = keyify(scope);
+  const key = `${scopeKey}_${messageId}`;
+  const docRef = db.collection("moderation_events").doc(key);
+  const doc = await docRef.get();
+  if (!doc.exists) {
+    console.log("No moderation event found for this scope and messageId", key);
+    return undefined;
+  }
+  const data = doc.data() as { reason: string };
+  return data.reason;
 }
 
 export async function updatePolicy(scope: ActionScope, policy: Policy) {

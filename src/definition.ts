@@ -159,6 +159,30 @@ function schema(): BotDefinition {
           },
         ],
       },
+      {
+        name: "explain",
+        default_role: "Participant",
+        description:
+          "Provide a message ID and get an explanation of why the bot moderated the message",
+        permissions: Permissions.encodePermissions(emptyPermissions),
+        params: [
+          {
+            name: "message_id",
+            required: true,
+            description: "The message ID of the message that was moderated",
+            placeholder:
+              "Enter the message ID of the message that was moderated",
+            param_type: {
+              StringParam: {
+                min_length: 0,
+                max_length: 100,
+                choices: [],
+                multi_line: false,
+              },
+            },
+          },
+        ],
+      },
     ],
   };
 }

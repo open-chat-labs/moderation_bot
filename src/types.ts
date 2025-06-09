@@ -1,4 +1,5 @@
 import {
+  ActionScope,
   ImageContent,
   InstallationRegistry,
   MessageEvent,
@@ -13,6 +14,25 @@ export type ModeratableContent =
 export type State = {
   installs: InstallationRegistry;
 };
+
+const NotModeratedSchema = z.object({
+  kind: z.literal("not_moderated"),
+});
+
+const ModeratedSchema = z.object({
+  kind: z.literal("moderated"),
+  reason: z.string(),
+  scope: z.custom<ActionScope>(),
+  messageId: z.bigint(),
+});
+
+const ModerationSchema = z.discriminatedUnion("kind", [
+  NotModeratedSchema,
+  ModeratedSchema,
+]);
+
+export type Moderation = z.infer<typeof ModerationSchema>;
+export type Moderated = z.infer<typeof ModeratedSchema>;
 
 const ReactionSchema = z.object({
   kind: z.literal("reaction"),
@@ -66,6 +86,7 @@ export const defaultPolicy: Policy = {
   threshold: 0.8,
 };
 
-// TODO - maybe we add something like a "temperature" param which we can apply to the platform rules so they can be
-// toned down across the board (with some exceptions)
-// And maybe we call them general rules or common sense rules rather than platform rules
+export type CategoryViolation = {
+  category: string;
+  score: number;
+};
