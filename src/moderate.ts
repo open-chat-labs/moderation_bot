@@ -200,7 +200,7 @@ function summariseViolations(violations: CategoryViolation[]): string {
     "The message crossed the moderation threshold for the following categories:\n",
   ];
   violations.forEach((v) => {
-    msgs.push(`${v.category} (${v.score})`);
+    msgs.push(`${v.category} (${v.score.toFixed(2)})`);
   });
   return msgs.join("\n");
 }

@@ -51,6 +51,7 @@ export async function saveModerationEvent(mod: Moderated) {
   const docRef = db.collection("moderation_events").doc(key);
   await docRef.set({
     reason: mod.reason,
+    timestamp: Date.now(),
   });
 }
 
