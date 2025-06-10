@@ -165,7 +165,7 @@ function schema(): BotDefinition {
             param_type: {
               StringParam: {
                 min_length: 1,
-                max_length: 10,
+                max_length: 500,
                 choices: [],
                 multi_line: false,
               },

@@ -14,7 +14,7 @@ function buildHelpText() {
   lines.push("`/pause`: Pauses moderation in this chat");
   lines.push("`/resume`: Resumes moderation in this chat");
   lines.push("`/status`: Display current configuration in this chat");
-  lines.push("`/rules`: Configure rules applies");
+  lines.push("`/rules`: Configure rules applied");
   lines.push("`/action`: Configure action taken when rules are broken");
   lines.push("`/explanation`: Configure if and how the bot explains decisions");
   lines.push("`/threshold`: Configure to threshold for general rules");
