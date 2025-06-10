@@ -2,30 +2,44 @@ import { BotClient } from "@open-ic/openchat-botclient-ts";
 import { APIGatewayProxyResultV2 } from "aws-lambda";
 import { loadPolicy, updatePolicy } from "./firebase";
 import { ephemeralResponse } from "./helpers";
-import { DetectionMode } from "./types";
+import { Explanation, RulesMode } from "./types";
 
-export async function rules(
+export async function explanation(
   client: BotClient
 ): Promise<APIGatewayProxyResultV2> {
-  const detectionMode = client.stringArg("strategy");
+  const explanation = client.stringArg("explanation");
   const policy = await loadPolicy(client.scope);
-  policy.detection = { kind: detectionMode as DetectionMode["kind"] };
+  policy.explanation = explanation as Explanation;
   await updatePolicy(client.scope, policy);
 
   return ephemeralResponse(
     client,
-    "The configuration for the moderation in this chat has been updated."
+    "The moderation explanation strategy in this chat has been updated."
   );
 }
 
-export async function consequences(
+export async function rules(
   client: BotClient
 ): Promise<APIGatewayProxyResultV2> {
-  const consquenceMode = client.stringArg("consequence");
+  const rules = client.stringArg("rules");
+  const policy = await loadPolicy(client.scope);
+  policy.rules = { kind: rules as RulesMode["kind"] };
+  await updatePolicy(client.scope, policy);
+
+  return ephemeralResponse(
+    client,
+    "The moderation rules in this chat have been updated."
+  );
+}
+
+export async function action(
+  client: BotClient
+): Promise<APIGatewayProxyResultV2> {
+  const actionMode = client.stringArg("action");
   const reaction = client.stringArg("reaction");
   const policy = await loadPolicy(client.scope);
-  policy.consequence =
-    consquenceMode === "deletion"
+  policy.action =
+    actionMode === "deletion"
       ? { kind: "deletion" }
       : { kind: "reaction", reaction: reaction ?? "💩" };
 
@@ -33,7 +47,7 @@ export async function consequences(
 
   return ephemeralResponse(
     client,
-    "The configuration for the moderation in this chat has been updated."
+    "The moderation action in this chat has been updated."
   );
 }
 
@@ -47,6 +61,6 @@ export async function threshold(
 
   return ephemeralResponse(
     client,
-    "The configuration for the moderation in this chat has been updated."
+    "The  moderation threshold in this chat has been updated."
   );
 }

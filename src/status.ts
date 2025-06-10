@@ -18,9 +18,12 @@ export async function status(
       );
       break;
     case true: {
-      msgs = msgs.concat(detectionClause(policy));
-      msgs.push(consequenceClause(policy));
-      msgs.push("Use the `/pause` command to pause moderation of this chat.");
+      msgs = msgs.concat(rulesClause(policy));
+      msgs.push(actionClause(policy));
+      msgs.push(explanationClause(policy));
+      msgs.push(
+        "Use the `/help` command for an overview of the configuration options."
+      );
     }
   }
   return ephemeralResponse(client, msgs.join("\n\n"), true);
@@ -34,32 +37,41 @@ function progressBar(score: number, width = 20): string {
   )} > permissive ${score.toFixed(2)}\``;
 }
 
-function detectionClause(policy: Policy): string[] {
-  switch (policy.detection.kind) {
+function rulesClause(policy: Policy): string[] {
+  switch (policy.rules.kind) {
     case "chat_rules":
       return [`I am moderating messages in this chat against the chat rules.`];
-    case "platform_rules":
+    case "general_rules":
       return [
-        `I am moderating messages in this chat against the platform rules`,
-        "Higher threshold values make me more permissive",
+        `I am moderating messages in this chat against [general content standards](https://platform.openai.com/docs/guides/moderation#content-classifications).`,
+        "Higher threshold values make me more permissive.",
         progressBar(policy.threshold),
-        `General rules are evaluated using the [OpenAI standard classification](https://platform.openai.com/docs/guides/moderation#content-classifications).`,
       ];
-    case "platform_and_chat_rules":
+    case "general_and_chat_rules":
       return [
-        `I am moderating messages in this chat against the platform rules and the chat rules.`,
-        "Higher threshold values make me more permissive",
+        `I am moderating messages in this chat against both [general content standards](https://platform.openai.com/docs/guides/moderation#content-classifications) and the specific chat rules.`,
+        "Higher threshold values make me more permissive.",
         progressBar(policy.threshold),
-        `General rules are evaluated using the [OpenAI standard classification](https://platform.openai.com/docs/guides/moderation#content-classifications).`,
       ];
   }
 }
 
-function consequenceClause(policy: Policy): string {
-  switch (policy.consequence.kind) {
+function actionClause(policy: Policy): string {
+  switch (policy.action.kind) {
     case "deletion":
       return "I will automatically delete messages that I think break the rules.";
     case "reaction":
-      return `I will react to message that I think break the rules with the ${policy.consequence.reaction} emoji.`;
+      return `I will react to message that I think break the rules with the ${policy.action.reaction} emoji.`;
+  }
+}
+
+function explanationClause(policy: Policy): string {
+  switch (policy.explanation) {
+    case "none":
+      return "I will not currently explain my decisions.";
+    case "quote_reply":
+      return "I will explain my decisions by quote replying to the message.";
+    case "thread_reply":
+      return "I will explain my decisions by replying to the message in a thread.";
   }
 }

@@ -60,25 +60,25 @@ function schema(): BotDefinition {
       {
         name: "rules",
         default_role: "Owner",
-        description: "Update the strategy used for moderating messages.",
+        description: "Update the rules used for moderating messages.",
         permissions: Permissions.encodePermissions(emptyPermissions),
         params: [
           {
-            name: "strategy",
+            name: "rules",
             required: true,
-            description: "The strategy used to moderate messages",
+            description: "The rules used to moderate messages",
             placeholder:
-              "Select the strategy to use to moderate messages in this chat",
+              "Select the rules to use to moderate messages in this chat",
             param_type: {
               StringParam: {
                 min_length: 1,
                 max_length: 1000,
                 choices: [
-                  { name: "Platform rules", value: "platform_rules" },
+                  { name: "General rules", value: "general_rules" },
                   { name: "Chat rules", value: "chat_rules" },
                   {
-                    name: "Platform rules and chat rules",
-                    value: "platform_and_chat_rules",
+                    name: "General rules and chat rules",
+                    value: "general_and_chat_rules",
                   },
                 ],
                 multi_line: false,
@@ -88,18 +88,55 @@ function schema(): BotDefinition {
         ],
       },
       {
-        name: "consequences",
+        name: "explanation",
         default_role: "Owner",
-        description:
-          "Update the bot's behaviour when a message violates the rules",
+        description: "Define if and how the bot explains its decisions",
         permissions: Permissions.encodePermissions(emptyPermissions),
         params: [
           {
-            name: "consequence",
+            name: "explanation",
             required: true,
-            description: "What to do with a message that breaks the rules",
+            description:
+              "Define if and how the the bot should explain its decisions",
             placeholder:
-              "Specify what to do with a message that breaks the rules",
+              "What action should the bot take to explain its decisions",
+            param_type: {
+              StringParam: {
+                min_length: 1,
+                max_length: 1000,
+                choices: [
+                  {
+                    name: "No explanation",
+                    value: "none",
+                  },
+                  {
+                    name: "Quote reply to the moderated message",
+                    value: "quote_reply",
+                  },
+                  {
+                    name: "Thread reply to the moderated message",
+                    value: "thread_reply",
+                  },
+                ],
+                multi_line: false,
+              },
+            },
+          },
+        ],
+      },
+      {
+        name: "action",
+        default_role: "Owner",
+        description:
+          "Update the action the bot takes when a message violates the rules",
+        permissions: Permissions.encodePermissions(emptyPermissions),
+        params: [
+          {
+            name: "action",
+            required: true,
+            description: "What action to take when a message breaks the rules",
+            placeholder:
+              "Specify what action to take when a message breaks the rules",
             param_type: {
               StringParam: {
                 min_length: 1,
@@ -139,7 +176,7 @@ function schema(): BotDefinition {
       {
         name: "threshold",
         default_role: "Owner",
-        description: "Set the thresholds used when applying platform rules",
+        description: "Set the thresholds used when applying general rules",
         permissions: Permissions.encodePermissions(emptyPermissions),
         params: [
           {
@@ -182,6 +219,14 @@ function schema(): BotDefinition {
             },
           },
         ],
+      },
+      {
+        name: "help",
+        default_role: "Participant",
+        description:
+          "Provide an overview of all the available commands that this bot supports",
+        permissions: Permissions.encodePermissions(emptyPermissions),
+        params: [],
       },
     ],
   };

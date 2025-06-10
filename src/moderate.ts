@@ -150,11 +150,11 @@ export async function moderateMessage(
       const [txt, hint] = content;
 
       let result: Moderation = { kind: "not_moderated" };
-      if (policy.detection.kind !== "chat_rules" && txt !== undefined) {
-        result = await platformModerate(client, policy, txt, messageId);
+      if (policy.rules.kind !== "chat_rules" && txt !== undefined) {
+        result = await generalModeration(client, policy, txt, messageId);
       }
       if (result.kind === "not_moderated") {
-        if (policy.detection.kind !== "platform_rules") {
+        if (policy.rules.kind !== "general_rules") {
           result = await chatModerate(client, txt, hint, messageId, thread);
         }
       }
@@ -205,7 +205,7 @@ function summariseViolations(violations: CategoryViolation[]): string {
   return msgs.join("\n");
 }
 
-export async function platformModerate(
+export async function generalModeration(
   client: BotClient,
   policy: Policy,
   text: string,
@@ -259,18 +259,35 @@ export async function chatModerate(
   return Promise.resolve({ kind: "not_moderated" });
 }
 
+async function applyExplanationStrategy(
+  _client: BotClient,
+  policy: Policy,
+  moderated: Moderated,
+  _thread?: number
+) {
+  await saveModerationEvent(moderated);
+  switch (policy.explanation) {
+    case "quote_reply":
+      console.log("We will quote reply to the message");
+      break;
+    case "thread_reply":
+      console.log("We will reply to the message in a thread");
+      break;
+  }
+}
+
 async function messageBreaksTheRules(
   client: BotClient,
   policy: Policy,
   moderated: Moderated,
   thread?: number
 ) {
-  await saveModerationEvent(moderated);
-  switch (policy.consequence.kind) {
+  await applyExplanationStrategy(client, policy, moderated, thread);
+  switch (policy.action.kind) {
     case "reaction":
       {
         const resp = await client
-          .addReaction(moderated.messageId, policy.consequence.reaction, thread)
+          .addReaction(moderated.messageId, policy.action.reaction, thread)
           .catch((err) => console.error("Error reacting to message", err));
         if (resp?.kind !== "success") {
           console.error("Error reacting to message: ", resp);
