@@ -25,9 +25,10 @@ function schema(): BotDefinition {
         chat: [
           "ReactToMessages",
           "ReadMessages",
-          "ReadChatDetails",
+          "ReadChatSummary",
           "DeleteMessages",
         ],
+        community: ["ReadCommunitySummary"],
       }),
     },
     default_subscriptions: {

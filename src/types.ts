@@ -24,6 +24,8 @@ const ModeratedSchema = z.object({
   reason: z.string(),
   scope: z.custom<ActionScope>(),
   messageId: z.bigint(),
+  eventIndex: z.number(),
+  messageIndex: z.number(),
 });
 
 const ModerationSchema = z.discriminatedUnion("kind", [

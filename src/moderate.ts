@@ -1,6 +1,7 @@
 import {
   ActionScope,
   BotClient,
+  CommunityIdentifier,
   MessageContent,
 } from "@open-ic/openchat-botclient-ts";
 import OpenAI from "openai";
@@ -39,11 +40,11 @@ Output format (JSON):
 
 const userMessage = (
   ctx: string,
-  rules: string,
+  rules: string[],
   hint: string,
   txt?: string
 ) => `
-Chat moderation rules: ${rules}
+Chat moderation rules: ${rules.join("\n\n")}
 Message: 
 - Type: ${hint}
 - Context: ${ctx}
@@ -51,11 +52,13 @@ Message:
 `;
 
 async function askOpenAI(
-  rules: string,
+  rules: string[],
   message: string | undefined,
   contentHint: string,
   scope: ActionScope,
   messageId: bigint,
+  eventIndex: number,
+  messageIndex: number,
   thread?: number
 ): Promise<Moderation> {
   const msg = userMessage(
@@ -85,7 +88,14 @@ async function askOpenAI(
     if (json.allowed) {
       return { kind: "not_moderated" };
     } else {
-      return { kind: "moderated", reason: json.reason, scope, messageId };
+      return {
+        kind: "moderated",
+        reason: json.reason,
+        scope,
+        messageId,
+        eventIndex,
+        messageIndex,
+      };
     }
   }
   return { kind: "not_moderated" };
@@ -133,7 +143,6 @@ export async function moderateMessage(
     return;
   }
 
-  console.log("Thread: ", thread);
   const resp = await client.chatEvents(
     {
       kind: "chat_events_by_index",
@@ -142,20 +151,41 @@ export async function moderateMessage(
     thread
   );
   if (resp.kind === "success" && resp.events[0].event.kind === "message") {
-    const contentType: MessageContent["kind"] =
-      resp.events[0].event.content.kind;
+    const fromTheBot = resp.events[0].event.sender === process.env.BOT_ID!;
+    if (fromTheBot) {
+      console.log("Message came from the moderator bot - skipping");
+      return;
+    }
+
     const messageId = resp.events[0].event.messageId;
+    const messageIndex = resp.events[0].event.messageIndex;
+    const eventIndex = resp.events[0].index;
     const content = extractFromContent(resp.events[0].event.content);
     if (content !== undefined) {
       const [txt, hint] = content;
 
       let result: Moderation = { kind: "not_moderated" };
       if (policy.rules.kind !== "chat_rules" && txt !== undefined) {
-        result = await generalModeration(client, policy, txt, messageId);
+        result = await generalModeration(
+          client,
+          policy,
+          txt,
+          messageId,
+          eventIndex,
+          messageIndex
+        );
       }
       if (result.kind === "not_moderated") {
         if (policy.rules.kind !== "general_rules") {
-          result = await chatModerate(client, txt, hint, messageId, thread);
+          result = await chatModerate(
+            client,
+            txt,
+            hint,
+            messageId,
+            eventIndex,
+            messageIndex,
+            thread
+          );
         }
       }
 
@@ -209,7 +239,9 @@ export async function generalModeration(
   client: BotClient,
   policy: Policy,
   text: string,
-  messageId: bigint
+  messageId: bigint,
+  eventIndex: number,
+  messageIndex: number
 ): Promise<Moderation> {
   console.log("Message text: ", text);
 
@@ -227,6 +259,8 @@ export async function generalModeration(
       return {
         kind: "moderated",
         messageId,
+        eventIndex,
+        messageIndex,
         scope: client.scope,
         reason: summariseViolations(breaking),
       };
@@ -236,22 +270,54 @@ export async function generalModeration(
   return { kind: "not_moderated" };
 }
 
+async function getRules(client: BotClient): Promise<string[]> {
+  const promises: Promise<string>[] = [];
+  const scope = client.scope;
+  if (scope.isChatScope()) {
+    if (scope.chat.isChannel()) {
+      promises.push(
+        client
+          .communitySummary(new CommunityIdentifier(scope.chat.communityId))
+          .then((resp) => {
+            if (resp.kind === "community_summary" && resp.rules.enabled) {
+              return resp.rules.text;
+            }
+            return "";
+          })
+      );
+    }
+    promises.push(
+      client.chatSummary().then((resp) => {
+        if (resp.kind === "group_chat" && resp.rules.enabled) {
+          return resp.rules.text;
+        }
+        return "";
+      })
+    );
+  }
+  const result = await Promise.all(promises);
+  return result.filter((r) => r !== "");
+}
+
 export async function chatModerate(
   client: BotClient,
   text: string | undefined,
   contentHint: string,
   messageId: bigint,
+  eventIndex: number,
+  messageIndex: number,
   thread?: number
 ): Promise<Moderation> {
-  // TODO - current limitation is that this does not account for the community rules (if they exist)
-  const summary = await client.chatSummary();
-  if (summary.kind === "group_chat" && summary.rules.enabled) {
+  const rules = await getRules(client);
+  if (rules.length > 0) {
     const result = await askOpenAI(
-      summary.rules.text,
+      rules,
       text,
       contentHint,
       client.scope,
       messageId,
+      eventIndex,
+      messageIndex,
       thread
     );
     return result;
@@ -260,18 +326,40 @@ export async function chatModerate(
 }
 
 async function applyExplanationStrategy(
-  _client: BotClient,
+  client: BotClient,
   policy: Policy,
   moderated: Moderated,
-  _thread?: number
+  thread?: number
 ) {
   await saveModerationEvent(moderated);
   switch (policy.explanation) {
-    case "quote_reply":
-      console.log("We will quote reply to the message");
+    case "quote_reply": {
+      const msg = await client.createTextMessage(moderated.reason);
+      msg.setRepliesTo(moderated.eventIndex);
+      if (thread !== undefined) {
+        msg.setThread(thread);
+      }
+      await client.sendMessage(msg).then((resp) => {
+        if (resp.kind === "error") {
+          console.log("Sending reply failed with: ", resp);
+        }
+        return resp;
+      });
       break;
+    }
     case "thread_reply":
-      console.log("We will reply to the message in a thread");
+      const msg = await client.createTextMessage(moderated.reason);
+      msg.setFinalised(true);
+      if (thread !== undefined) {
+        msg.setRepliesTo(moderated.eventIndex).setThread(thread);
+      } else {
+        msg.setThread(moderated.messageIndex);
+      }
+      await client.sendMessage(msg).then((resp) => {
+        if (resp.kind === "error") {
+          console.log("Sending reply failed with: ", resp);
+        }
+      });
       break;
   }
 }
