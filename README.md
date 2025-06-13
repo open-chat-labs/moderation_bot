@@ -1,11 +1,33 @@
-This is the OpenChat moderation bot
+# OpenChat moderation bot
 
-... documentation to follow
+This bot can be installed into an OpenChat community or group to provide AI driven automated content moderation.
+
+It can be configured to apply general common sense rules, or to attempt to interpret the community or chat rules or both. For the general content moderation, the bot uses the OpenAI moderation api which uses a widely applicable [set of content policies](https://platform.openai.com/docs/guides/moderation#content-classifications).
+
+It is also possible to configure how the bot behaves when it decides that a message violates the rules it is applying. It can either react to the message with a custom emoji that you define or it can delete the message. In the future we can extend this to add more actions. For example, it might be desirable to give a user the benefit of the doubt once or twice and then gradually escalate up to and including ejecting that user from the community or group.
+
+And finally it is also possible to configure if and how the bot explains its decisions. It can either offer no explanation, it can quote reply to the offending message with the explanation, or it can reply in a thread with the explanation.
+
+When applying the general moderation rules it is also possible to adjust the threshold that a message must cross (in any category) to be considered unsafe. This allows you some control over how strict or permissive the bot is in this mode. It would be possible to offer finer grained control over this but initially we are attempting to strike a balance between configurability and simplicity.
+
+## Privacy
+
+It is important to realise that this bot must be given permission to read all messages in a chat in order to function. Furthermore, it will be sending the content of each message to OpenAI's apis (albeit anonymously). As a community or group owner, you must decide for yourself whether this is an acceptable state of affairs and decide whether to install this bot or not accordingly.
+
+Note that this bot will not operate in private contexts by default. The dev team are still working on the best way to allow bots to operate in private contexts if this is explicitly requested.
 
 ## TODO
 
-/configure command should allow to toggle between just platform rules, or platform & chat rules and allow config of consequences. For starters we will allow deleting the message or reacting to the message with a custom emoji.
+## Commands
 
-Recording moderation events in some way to support reporting in some way. Probably we capture the content, the sender, the nature of the violation etc. Question is how do we store it. Need to think about how it is likely to be retrieved and how we need to control access to it.
+You can use the following commands to interact with this bot:
 
-Think about how we handle private contexts.
+`/help`: Display this summary of commands  
+`/pause`: Pauses moderation in this chat  
+`/resume`: Resumes moderation in this chat  
+`/status`: Display current configuration in this chat  
+`/rules`: Configure rules applied  
+`/action`: Configure action taken when rules are broken  
+`/explanation`: Configure if and how the bot explains decisions  
+`/threshold`: Configure to threshold for general rules  
+`/explain`: Explain the reason for moderation on a single message
