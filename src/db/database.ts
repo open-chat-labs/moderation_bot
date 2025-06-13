@@ -122,23 +122,23 @@ export async function loadModerationReason(
   scope: ActionScope,
   messageId: bigint
 ) {
-  const ev = await db.query.moderation_events.findFirst({
+  const ev = await db.query.moderationEvents.findFirst({
     where: (i, { eq }) =>
-      and(eq(i.scope, keyify(scope)), eq(i.message_id, messageId.toString())),
+      and(eq(i.scope, keyify(scope)), eq(i.messageId, messageId.toString())),
   });
   return ev?.reason;
 }
 
 export function saveModerationEvent(moderated: Moderated) {
   return db
-    .insert(schema.moderation_events)
+    .insert(schema.moderationEvents)
     .values({
       scope: keyify(moderated.scope),
-      message_id: moderated.messageId.toString(),
-      event_index: moderated.eventIndex,
-      message_index: moderated.messageIndex,
+      messageId: moderated.messageId.toString(),
+      eventIndex: moderated.eventIndex,
+      messageIndex: moderated.messageIndex,
       reason: moderated.reason,
-      timestamp: new Date(),
+      timestamp: new Date().toISOString(),
     })
     .onConflictDoNothing();
 }
@@ -180,7 +180,7 @@ export async function getInstallation(
   if (install === undefined) return undefined;
 
   return new InstallationRecord(
-    install.api_gateway,
+    install.apiGateway,
     new Permissions(install.commandPermissions as RawPermissions),
     new Permissions(install.autonomousPermissions as RawPermissions)
   );
@@ -194,7 +194,7 @@ export async function saveInstallation(
     .insert(schema.installations)
     .values({
       location: keyify(location),
-      api_gateway: record.apiGateway,
+      apiGateway: record.apiGateway,
       autonomousPermissions: record.grantedAutonomousPermissions.rawPermissions,
       commandPermissions: record.grantedCommandPermissions.rawPermissions,
     })

@@ -1,5 +1,6 @@
 import {
   boolean,
+  foreignKey,
   integer,
   json,
   numeric,
@@ -12,45 +13,48 @@ import {
 } from "drizzle-orm/pg-core";
 
 export const installations = pgTable("installations", {
-  location: text("location").primaryKey(),
-  api_gateway: text("api_gateway").notNull(),
+  location: text().primaryKey().notNull(),
+  apiGateway: text("api_gateway").notNull(),
   commandPermissions: json("command_permissions").notNull(),
   autonomousPermissions: json("autonomous_permissions").notNull(),
 });
 
-export const policy = pgTable(
-  "policy",
-  {
-    location: text("location")
-      .notNull()
-      .references(() => installations.location),
-    scope: text("scope").notNull(),
-    moderating: boolean("moderating").notNull(),
-    threshold: real("threshold").notNull(),
-    explanation: smallint("explanation").notNull(),
-    rules: smallint("rules").notNull(),
-    action: smallint("action").notNull(),
-    reaction: text("reaction"),
-  },
-  (table) => [
-    primaryKey({ name: "policy_pk", columns: [table.location, table.scope] }),
-  ]
-);
-
-export const moderation_events = pgTable(
+export const moderationEvents = pgTable(
   "moderation_events",
   {
-    scope: text("scope").notNull(),
-    message_id: numeric("message_id").notNull(),
-    event_index: integer("event_index").notNull(),
-    message_index: integer("message_index").notNull(),
-    reason: text("reason").notNull(),
-    timestamp: timestamp("timestamp").notNull(),
+    scope: text().notNull(),
+    messageId: numeric("message_id").notNull(),
+    eventIndex: integer("event_index").notNull(),
+    messageIndex: integer("message_index").notNull(),
+    reason: text().notNull(),
+    timestamp: timestamp({ mode: "string" }).notNull(),
   },
   (table) => [
     primaryKey({
+      columns: [table.scope, table.messageId],
       name: "moderation_pk",
-      columns: [table.scope, table.message_id],
     }),
+  ]
+);
+
+export const policy = pgTable(
+  "policy",
+  {
+    location: text().notNull(),
+    scope: text().notNull(),
+    moderating: boolean().notNull(),
+    threshold: real().notNull(),
+    explanation: smallint().notNull(),
+    rules: smallint().notNull(),
+    action: smallint().notNull(),
+    reaction: text(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.location],
+      foreignColumns: [installations.location],
+      name: "location_fk",
+    }).onDelete("cascade"),
+    primaryKey({ columns: [table.location, table.scope], name: "policy_pk" }),
   ]
 );
