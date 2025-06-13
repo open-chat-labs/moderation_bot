@@ -1,15 +1,17 @@
-import { BotClient } from "@open-ic/openchat-botclient-ts";
+import { BotClient, ChatActionScope } from "@open-ic/openchat-botclient-ts";
 import { APIGatewayProxyResultV2 } from "aws-lambda";
-import { loadPolicy } from "./firebase";
+import { getPolicy, withPool } from "./db/database";
 import { ephemeralResponse } from "./helpers";
-import { Policy } from "./types";
+import { Action, Explanation, Policy, Rules } from "./types";
 
 export async function status(
   client: BotClient
 ): Promise<APIGatewayProxyResultV2> {
   // TODO problem - this will currently report that it is moderating private channels
   // when actually it is not. Not sure what to do about private channels in general.
-  const policy = await loadPolicy(client.scope);
+  const policy = await withPool(() =>
+    getPolicy(client.scope as ChatActionScope)
+  );
   let msgs: string[] = [];
   switch (policy.moderating) {
     case false:
@@ -38,16 +40,16 @@ function progressBar(score: number, width = 20): string {
 }
 
 function rulesClause(policy: Policy): string[] {
-  switch (policy.rules.kind) {
-    case "chat_rules":
+  switch (policy.rules) {
+    case Rules.CHAT_RULES:
       return [`I am moderating messages in this chat against the chat rules.`];
-    case "general_rules":
+    case Rules.GENERAL_RULES:
       return [
         `I am moderating messages in this chat against [general content standards](https://platform.openai.com/docs/guides/moderation#content-classifications).`,
         "Higher threshold values make me more permissive.",
         progressBar(policy.threshold),
       ];
-    case "general_and_chat_rules":
+    case Rules.GENERAL_AND_CHAT_RULES:
       return [
         `I am moderating messages in this chat against both [general content standards](https://platform.openai.com/docs/guides/moderation#content-classifications) and the specific chat rules.`,
         "Higher threshold values make me more permissive.",
@@ -57,21 +59,21 @@ function rulesClause(policy: Policy): string[] {
 }
 
 function actionClause(policy: Policy): string {
-  switch (policy.action.kind) {
-    case "deletion":
+  switch (policy.action) {
+    case Action.DELETION:
       return "I will automatically delete messages that I think break the rules.";
-    case "reaction":
-      return `I will react to message that I think break the rules with the ${policy.action.reaction} emoji.`;
+    case Action.REACTION:
+      return `I will react to message that I think break the rules with the ${policy.reaction} emoji.`;
   }
 }
 
 function explanationClause(policy: Policy): string {
   switch (policy.explanation) {
-    case "none":
+    case Explanation.NONE:
       return "I will not currently explain my decisions.";
-    case "quote_reply":
+    case Explanation.QUOTE_REPLY:
       return "I will explain my decisions by quote replying to the message.";
-    case "thread_reply":
+    case Explanation.THREAD_REPLY:
       return "I will explain my decisions by replying to the message in a thread.";
   }
 }

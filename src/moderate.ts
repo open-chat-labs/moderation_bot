@@ -1,12 +1,21 @@
 import {
   ActionScope,
   BotClient,
+  ChatActionScope,
   CommunityIdentifier,
   MessageContent,
 } from "@open-ic/openchat-botclient-ts";
 import OpenAI from "openai";
-import { loadPolicy, saveModerationEvent } from "./firebase";
-import { CategoryViolation, Moderated, Moderation, Policy } from "./types";
+import { getPolicy, saveModerationEvent } from "./db/database";
+import {
+  Action,
+  CategoryViolation,
+  Explanation,
+  Moderated,
+  Moderation,
+  Policy,
+  Rules,
+} from "./types";
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 
 const systemPrompt = `
@@ -137,7 +146,7 @@ export async function moderateMessage(
   eventIndex: number,
   thread?: number
 ): Promise<void> {
-  const policy = await loadPolicy(client.scope);
+  const policy = await getPolicy(client.scope as ChatActionScope);
   if (!policy.moderating) {
     console.log("Skipping message as policy.moderating is set to false");
     return;
@@ -165,7 +174,7 @@ export async function moderateMessage(
       const [txt, hint] = content;
 
       let result: Moderation = { kind: "not_moderated" };
-      if (policy.rules.kind !== "chat_rules" && txt !== undefined) {
+      if (policy.rules !== Rules.CHAT_RULES && txt !== undefined) {
         result = await generalModeration(
           client,
           policy,
@@ -176,7 +185,7 @@ export async function moderateMessage(
         );
       }
       if (result.kind === "not_moderated") {
-        if (policy.rules.kind !== "general_rules") {
+        if (policy.rules !== Rules.GENERAL_RULES) {
           result = await chatModerate(
             client,
             txt,
@@ -333,7 +342,7 @@ async function applyExplanationStrategy(
 ) {
   await saveModerationEvent(moderated);
   switch (policy.explanation) {
-    case "quote_reply": {
+    case Explanation.QUOTE_REPLY: {
       const msg = await client.createTextMessage(moderated.reason);
       msg.setRepliesTo(moderated.eventIndex);
       if (thread !== undefined) {
@@ -347,7 +356,7 @@ async function applyExplanationStrategy(
       });
       break;
     }
-    case "thread_reply":
+    case Explanation.THREAD_REPLY:
       const msg = await client.createTextMessage(moderated.reason);
       msg.setFinalised(true);
       if (thread !== undefined) {
@@ -371,18 +380,18 @@ async function messageBreaksTheRules(
   thread?: number
 ) {
   await applyExplanationStrategy(client, policy, moderated, thread);
-  switch (policy.action.kind) {
-    case "reaction":
+  switch (policy.action) {
+    case Action.REACTION:
       {
         const resp = await client
-          .addReaction(moderated.messageId, policy.action.reaction, thread)
+          .addReaction(moderated.messageId, policy.reaction ?? "💩", thread)
           .catch((err) => console.error("Error reacting to message", err));
         if (resp?.kind !== "success") {
           console.error("Error reacting to message: ", resp);
         }
       }
       break;
-    case "deletion":
+    case Action.DELETION:
       {
         const resp = await client
           .deleteMessages([moderated.messageId], thread)

@@ -5,12 +5,6 @@ import { ephemeralResponse } from "./helpers";
 export async function help(
   client: BotClient
 ): Promise<APIGatewayProxyResultV2> {
-  const msg = await client.createTextMessage("what the hell is going on");
-  await client.sendMessage(msg).then((resp) => {
-    if (resp.kind !== "success") {
-      console.log("Error: ", resp);
-    }
-  });
   return ephemeralResponse(client, buildHelpText(), true);
 }
 

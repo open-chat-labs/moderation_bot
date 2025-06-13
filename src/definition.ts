@@ -71,18 +71,17 @@ function schema(): BotDefinition {
             placeholder:
               "Select the rules to use to moderate messages in this chat",
             param_type: {
-              StringParam: {
-                min_length: 1,
-                max_length: 1000,
+              IntegerParam: {
+                min_value: 0n,
+                max_value: 2n,
                 choices: [
-                  { name: "General rules", value: "general_rules" },
-                  { name: "Chat rules", value: "chat_rules" },
+                  { name: "General rules", value: 0n },
+                  { name: "Chat rules", value: 1n },
                   {
                     name: "General rules and chat rules",
-                    value: "general_and_chat_rules",
+                    value: 2n,
                   },
                 ],
-                multi_line: false,
               },
             },
           },
@@ -102,24 +101,23 @@ function schema(): BotDefinition {
             placeholder:
               "What action should the bot take to explain its decisions",
             param_type: {
-              StringParam: {
-                min_length: 1,
-                max_length: 1000,
+              IntegerParam: {
+                min_value: 0n,
+                max_value: 2n,
                 choices: [
                   {
                     name: "No explanation",
-                    value: "none",
+                    value: 0n,
                   },
                   {
                     name: "Quote reply to the moderated message",
-                    value: "quote_reply",
+                    value: 1n,
                   },
                   {
                     name: "Thread reply to the moderated message",
-                    value: "thread_reply",
+                    value: 2n,
                   },
                 ],
-                multi_line: false,
               },
             },
           },
@@ -139,20 +137,19 @@ function schema(): BotDefinition {
             placeholder:
               "Specify what action to take when a message breaks the rules",
             param_type: {
-              StringParam: {
-                min_length: 1,
-                max_length: 1000,
+              IntegerParam: {
+                min_value: 0n,
+                max_value: 1n,
                 choices: [
                   {
                     name: "Add a special reaction to the message",
-                    value: "reaction",
+                    value: 0n,
                   },
                   {
                     name: "Delete the message",
-                    value: "deletion",
+                    value: 1n,
                   },
                 ],
-                multi_line: false,
               },
             },
           },

@@ -5,7 +5,6 @@ import {
   MessageEvent,
   TextContent,
 } from "@open-ic/openchat-botclient-ts";
-import { z } from "zod";
 
 export type ModeratableContent =
   | MessageEvent<TextContent>
@@ -15,82 +14,54 @@ export type State = {
   installs: InstallationRegistry;
 };
 
-const NotModeratedSchema = z.object({
-  kind: z.literal("not_moderated"),
-});
+type NotModerated = {
+  kind: "not_moderated";
+};
 
-const ModeratedSchema = z.object({
-  kind: z.literal("moderated"),
-  reason: z.string(),
-  scope: z.custom<ActionScope>(),
-  messageId: z.bigint(),
-  eventIndex: z.number(),
-  messageIndex: z.number(),
-});
+export type Moderated = {
+  kind: "moderated";
+  reason: string;
+  scope: ActionScope;
+  messageId: bigint;
+  eventIndex: number;
+  messageIndex: number;
+};
 
-const ModerationSchema = z.discriminatedUnion("kind", [
-  NotModeratedSchema,
-  ModeratedSchema,
-]);
+export type Moderation = Moderated | NotModerated;
 
-export type Moderation = z.infer<typeof ModerationSchema>;
-export type Moderated = z.infer<typeof ModeratedSchema>;
+export enum Action {
+  REACTION = 0,
+  DELETION = 1,
+}
 
-const ReactionSchema = z.object({
-  kind: z.literal("reaction"),
-  reaction: z.string(),
-});
+export enum Explanation {
+  NONE = 0,
+  QUOTE_REPLY = 1,
+  THREAD_REPLY = 2,
+}
 
-const DeletionSchema = z.object({
-  kind: z.literal("deletion"),
-});
+export enum Rules {
+  GENERAL_RULES = 0,
+  CHAT_RULES = 1,
+  GENERAL_AND_CHAT_RULES = 2,
+}
 
-const ActionSchema = z.discriminatedUnion("kind", [
-  ReactionSchema,
-  DeletionSchema,
-]);
-
-export type ActionMode = z.infer<typeof ActionSchema>;
-
-const GeneralRulesSchema = z.object({
-  kind: z.literal("general_rules"),
-});
-
-const ChatRulesSchema = z.object({
-  kind: z.literal("chat_rules"),
-});
-
-const ExplanationSchema = z.enum(["none", "quote_reply", "thread_reply"]);
-export type Explanation = z.infer<typeof ExplanationSchema>;
-
-const GeneralAndChatRulesSchema = z.object({
-  kind: z.literal("general_and_chat_rules"),
-});
-
-const RulesSchema = z.discriminatedUnion("kind", [
-  GeneralRulesSchema,
-  GeneralAndChatRulesSchema,
-  ChatRulesSchema,
-]);
-
-export type RulesMode = z.infer<typeof RulesSchema>;
-
-export const PolicySchema = z.object({
-  moderating: z.boolean(),
-  rules: RulesSchema,
-  action: ActionSchema,
-  threshold: z.number(),
-  explanation: ExplanationSchema,
-});
-
-export type Policy = z.infer<typeof PolicySchema>;
+export type Policy = {
+  moderating: boolean;
+  rules: Rules;
+  action: Action;
+  reaction?: string;
+  threshold: number;
+  explanation: Explanation;
+};
 
 export const defaultPolicy: Policy = {
   moderating: true,
-  rules: { kind: "general_rules" },
-  action: { kind: "reaction", reaction: "💩" },
+  rules: Rules.GENERAL_RULES,
+  action: Action.REACTION,
+  reaction: "💩",
   threshold: 0.8,
-  explanation: "none",
+  explanation: Explanation.NONE,
 };
 
 export type CategoryViolation = {

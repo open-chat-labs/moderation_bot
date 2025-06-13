@@ -5,8 +5,8 @@ import {
   InstallationRecord,
 } from "@open-ic/openchat-botclient-ts";
 import type { APIGatewayProxyHandlerV2 } from "aws-lambda";
+import { saveInstallation, uninstall, withPool } from "./db/database";
 import { factory } from "./factory";
-import { install, uninstall } from "./installation";
 import { moderateMessage } from "./moderate";
 
 export const notify: APIGatewayProxyHandlerV2 = async (event) => {
@@ -15,24 +15,24 @@ export const notify: APIGatewayProxyHandlerV2 = async (event) => {
     factory,
     async (client: BotClient, ev: BotEvent, apiGateway: string) => {
       if (ev.kind === "bot_uninstalled_event") {
-        await uninstall(ev.location);
+        const location = ev.location;
+        await withPool(() => uninstall(location));
         return { statusCode: 200 };
       }
 
       if (ev.kind === "bot_installed_event") {
-        await install(
-          ev.location,
-          new InstallationRecord(
-            apiGateway,
-            ev.grantedAutonomousPermissions,
-            ev.grantedCommandPermissions
-          )
+        const location = ev.location;
+        const record = new InstallationRecord(
+          apiGateway,
+          ev.grantedAutonomousPermissions,
+          ev.grantedCommandPermissions
         );
+        await withPool(() => saveInstallation(location, record));
         return { statusCode: 200 };
       }
 
       if (ev.kind === "bot_chat_event" && ev.eventType === "message") {
-        await moderateMessage(client, ev.eventIndex, ev.thread);
+        await withPool(() => moderateMessage(client, ev.eventIndex, ev.thread));
       }
       return {
         statusCode: 200,
