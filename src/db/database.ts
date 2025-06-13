@@ -37,33 +37,39 @@ type RawPermissions = {
   message: number;
 };
 
-function updateModerating(scope: ActionScope, moderating: boolean) {
+function updateModerating(scope: ChatActionScope, moderating: boolean) {
   return db
-    .update(schema.policy)
-    .set({
-      moderating,
-    })
-    .where(eq(schema.policy.scope, keyify(scope)));
+    .insert(schema.policy)
+    .values({ ...defaultPolicyRecord(scope), moderating })
+    .onConflictDoUpdate({
+      target: [schema.policy.location, schema.policy.scope],
+      set: {
+        moderating,
+      },
+    });
 }
 
-export function pauseModeration(scope: ActionScope) {
+export function pauseModeration(scope: ChatActionScope) {
   return updateModerating(scope, false);
 }
 
-export function resumeModeration(scope: ActionScope) {
+export function resumeModeration(scope: ChatActionScope) {
   return updateModerating(scope, true);
 }
 
 export function updateExplanationPolicy(
-  scope: ActionScope,
+  scope: ChatActionScope,
   explanation: Explanation
 ) {
   return db
-    .update(schema.policy)
-    .set({
-      explanation,
-    })
-    .where(eq(schema.policy.scope, keyify(scope)));
+    .insert(schema.policy)
+    .values({ ...defaultPolicyRecord(scope), explanation })
+    .onConflictDoUpdate({
+      target: [schema.policy.location, schema.policy.scope],
+      set: {
+        explanation,
+      },
+    });
 }
 
 function defaultPolicyRecord(scope: ChatActionScope) {
@@ -95,27 +101,33 @@ export function updateRulesPolicy(scope: ChatActionScope, rules: Rules) {
     });
 }
 
-export function updateThreshold(scope: ActionScope, threshold: number) {
+export function updateThreshold(scope: ChatActionScope, threshold: number) {
   return db
-    .update(schema.policy)
-    .set({
-      threshold,
-    })
-    .where(eq(schema.policy.scope, keyify(scope)));
+    .insert(schema.policy)
+    .values({ ...defaultPolicyRecord(scope), threshold })
+    .onConflictDoUpdate({
+      target: [schema.policy.location, schema.policy.scope],
+      set: {
+        threshold,
+      },
+    });
 }
 
 export function updateActionPolicy(
-  scope: ActionScope,
+  scope: ChatActionScope,
   action: Action,
   reaction?: string
 ) {
   return db
-    .update(schema.policy)
-    .set({
-      action,
-      reaction: action === Action.REACTION ? reaction ?? "💩" : reaction,
-    })
-    .where(eq(schema.policy.scope, keyify(scope)));
+    .insert(schema.policy)
+    .values({ ...defaultPolicyRecord(scope), action, reaction })
+    .onConflictDoUpdate({
+      target: [schema.policy.location, schema.policy.scope],
+      set: {
+        action,
+        reaction,
+      },
+    });
 }
 
 export async function loadModerationReason(
@@ -225,7 +237,9 @@ export async function withPool<T>(fn: () => Promise<T>): Promise<T> {
   try {
     return await fn();
   } finally {
-    await pool.end();
+    if (process.env.MODE === "development") {
+      await pool.end();
+    }
   }
 }
 

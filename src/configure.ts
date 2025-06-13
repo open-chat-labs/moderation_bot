@@ -15,7 +15,10 @@ export async function explanation(
 ): Promise<APIGatewayProxyResultV2> {
   const explanation = client.integerArg("explanation") ?? 0n;
   await withPool(() =>
-    updateExplanationPolicy(client.scope, explanation as unknown as Explanation)
+    updateExplanationPolicy(
+      client.scope as ChatActionScope,
+      explanation as unknown as Explanation
+    )
   );
   return ephemeralResponse(
     client,
@@ -45,7 +48,11 @@ export async function action(
   const actionMode = client.integerArg("action") ?? 0n;
   const reaction = client.stringArg("reaction");
   await withPool(() =>
-    updateActionPolicy(client.scope, actionMode as unknown as Action, reaction)
+    updateActionPolicy(
+      client.scope as ChatActionScope,
+      actionMode as unknown as Action,
+      reaction
+    )
   );
   return ephemeralResponse(
     client,
@@ -57,7 +64,10 @@ export async function threshold(
   client: BotClient
 ): Promise<APIGatewayProxyResultV2> {
   await withPool(() =>
-    updateThreshold(client.scope, client.decimalArg("threshold") ?? 0.8)
+    updateThreshold(
+      client.scope as ChatActionScope,
+      client.decimalArg("threshold") ?? 0.8
+    )
   );
   return ephemeralResponse(
     client,
