@@ -1,5 +1,6 @@
 import { BotClient } from "@open-ic/openchat-botclient-ts";
 import { APIGatewayProxyResultV2 } from "aws-lambda";
+import { schema } from "./definition";
 import { ephemeralResponse } from "./helpers";
 
 export async function help(
@@ -9,20 +10,9 @@ export async function help(
 }
 
 function buildHelpText() {
-  const lines: string[] = [];
-  lines.push("`/help`: Display this summary of commands");
-  lines.push("`/pause`: Pauses moderation in this chat");
-  lines.push("`/resume`: Resumes moderation in this chat");
-  lines.push("`/status`: Display current configuration in this chat");
-  lines.push("`/rules`: Configure rules applied");
-  lines.push("`/action`: Configure action taken when rules are broken");
-  lines.push("`/explanation`: Configure if and how the bot explains decisions");
-  lines.push("`/threshold`: Configure to threshold for general rules");
-  lines.push(
-    "`/top_offenders`: Find out who the persistent offenders are in your chat"
-  );
-  lines.push(
-    "`/explain`: Explain the reason for moderation on a single message"
-  );
+  const definition = schema();
+  const lines = definition.commands.map((c) => {
+    return `\`/${c.name}\`: ${c.description}`;
+  });
   return lines.join("\n");
 }

@@ -14,7 +14,7 @@ const emptyPermissions = {
   message: [],
 };
 
-function schema(): BotDefinition {
+export function schema(): BotDefinition {
   return {
     description:
       "This bot will perform automated moderation in your community. \n\nIt can be configured to apply general purpose moderation according to [OpenAI's standard content classifications](https://platform.openai.com/docs/guides/moderation#content-classifications) and also to account for the specific rules in your groups and communities. \n\nIf a message is found to violate the rules, you can configure the bot to either delete the message immediately or just add the reaction of your choice to the message. This is useful so that you can get a feel for how the bot behaves before you allow it to start deleting messages. In the future we can add more sophisticated responses. e.g. it will be possible to warn people one or more times before deleting their messages and to ultimately block persistent offenders.\n\nNote that this bot uses OpenAI's moderation and completiong APIs for classification. This means that message data will be sent to OpenAI so you should only trust this bot to the extent that you trust OpenAI.",
@@ -39,29 +39,28 @@ function schema(): BotDefinition {
       {
         name: "resume",
         default_role: "Owner",
-        description: "Resume automatic moderation of the messages in this chat",
+        description: "Resume moderation in this chat",
         permissions: Permissions.encodePermissions(emptyPermissions),
         params: [],
       },
       {
         name: "pause",
         default_role: "Owner",
-        description: "Pause automatic moderation of the messages in this chat",
+        description: "Pause moderation in this chat",
         permissions: Permissions.encodePermissions(emptyPermissions),
         params: [],
       },
       {
         name: "status",
         default_role: "Owner",
-        description:
-          "Report whether the bot is current moderating this chat and the policy it is applying",
+        description: "Display current configuration in this chat",
         permissions: Permissions.encodePermissions(emptyPermissions),
         params: [],
       },
       {
         name: "rules",
         default_role: "Owner",
-        description: "Update the rules used for moderating messages.",
+        description: "Configure rules applied",
         permissions: Permissions.encodePermissions(emptyPermissions),
         params: [
           {
@@ -90,7 +89,7 @@ function schema(): BotDefinition {
       {
         name: "explanation",
         default_role: "Owner",
-        description: "Define if and how the bot explains its decisions",
+        description: "Configure if and how the bot explains decisions",
         permissions: Permissions.encodePermissions(emptyPermissions),
         params: [
           {
@@ -126,8 +125,7 @@ function schema(): BotDefinition {
       {
         name: "action",
         default_role: "Owner",
-        description:
-          "Update the action the bot takes when a message violates the rules",
+        description: "Configure action taken when rules are broken",
         permissions: Permissions.encodePermissions(emptyPermissions),
         params: [
           {
@@ -174,7 +172,7 @@ function schema(): BotDefinition {
       {
         name: "threshold",
         default_role: "Owner",
-        description: "Set the thresholds used when applying general rules",
+        description: "Configure to threshold for general rules",
         permissions: Permissions.encodePermissions(emptyPermissions),
         params: [
           {
@@ -197,8 +195,7 @@ function schema(): BotDefinition {
       {
         name: "explain",
         default_role: "Participant",
-        description:
-          "Provide a message ID and get an explanation of why the bot moderated the message",
+        description: "Explain the reason for moderation on a single message",
         permissions: Permissions.encodePermissions(emptyPermissions),
         params: [
           {
@@ -221,16 +218,14 @@ function schema(): BotDefinition {
       {
         name: "help",
         default_role: "Participant",
-        description:
-          "Provide an overview of all the available commands that this bot supports",
+        description: "Display a summary of commands",
         permissions: Permissions.encodePermissions(emptyPermissions),
         params: [],
       },
       {
         name: "top_offenders",
         default_role: "Participant",
-        description:
-          "List the top 10 worst offenders in this scope by messages moderated",
+        description: "Find out who the persistent offenders are in your chat",
         permissions: Permissions.encodePermissions(emptyPermissions),
         params: [],
       },
