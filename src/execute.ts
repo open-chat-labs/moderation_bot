@@ -7,10 +7,13 @@ import { badRequest, withBotClient } from "./helpers";
 import { pause } from "./pause";
 import { resume } from "./resume";
 import { status } from "./status";
+import { topOffenders } from "./top_offenders";
 
 export const command: APIGatewayProxyHandlerV2 = async (event) => {
   return withBotClient(event, async (client) => {
     switch (client.commandName) {
+      case "top_offenders":
+        return topOffenders(client);
       case "resume":
         return resume(client);
       case "pause":

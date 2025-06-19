@@ -69,6 +69,7 @@ async function askOpenAI(
   messageId: bigint,
   eventIndex: number,
   messageIndex: number,
+  senderId: string,
   thread?: number
 ): Promise<Moderation> {
   const msg = userMessage(
@@ -105,6 +106,7 @@ async function askOpenAI(
         messageId,
         eventIndex,
         messageIndex,
+        senderId,
       };
     }
   }
@@ -176,6 +178,7 @@ export async function moderateMessage(
     const messageId = resp.events[0].event.messageId;
     const messageIndex = resp.events[0].event.messageIndex;
     const eventIndex = resp.events[0].index;
+    const senderId = resp.events[0].event.sender;
     const content = extractFromContent(resp.events[0].event.content);
     if (content !== undefined) {
       const [txt, hint, imageUrl] = content;
@@ -189,7 +192,8 @@ export async function moderateMessage(
           imageUrl,
           messageId,
           eventIndex,
-          messageIndex
+          messageIndex,
+          senderId
         );
       }
       if (result.kind === "not_moderated") {
@@ -201,6 +205,7 @@ export async function moderateMessage(
             messageId,
             eventIndex,
             messageIndex,
+            senderId,
             thread
           );
         }
@@ -243,7 +248,8 @@ export async function generalModeration(
   imageUrl: string | undefined,
   messageId: bigint,
   eventIndex: number,
-  messageIndex: number
+  messageIndex: number,
+  senderId: string
 ): Promise<Moderation> {
   console.log("Message text: ", text);
 
@@ -271,6 +277,7 @@ export async function generalModeration(
         messageIndex,
         scope: client.scope,
         reason: summariseViolations(breaking),
+        senderId,
       };
     }
     return { kind: "not_moderated" };
@@ -314,6 +321,7 @@ export async function chatModerate(
   messageId: bigint,
   eventIndex: number,
   messageIndex: number,
+  senderId: string,
   thread?: number
 ): Promise<Moderation> {
   const rules = await getRules(client);
@@ -326,6 +334,7 @@ export async function chatModerate(
       messageId,
       eventIndex,
       messageIndex,
+      senderId,
       thread
     );
     return result;

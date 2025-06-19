@@ -19,6 +19,26 @@ export const installations = pgTable("installations", {
   autonomousPermissions: json("autonomous_permissions").notNull(),
 });
 
+export const senderViolations = pgTable(
+  "sender_violations",
+  {
+    scope: text().notNull(),
+    messageId: numeric("message_id").notNull(),
+    senderId: text().notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.scope, table.messageId, table.senderId],
+      name: "sender_violation_pk",
+    }),
+    foreignKey({
+      columns: [table.scope, table.messageId],
+      foreignColumns: [moderationEvents.scope, moderationEvents.messageId],
+      name: "moderation_fk",
+    }).onDelete("cascade"),
+  ]
+);
+
 export const moderationEvents = pgTable(
   "moderation_events",
   {

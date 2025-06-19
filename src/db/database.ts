@@ -7,7 +7,7 @@ import {
   InstallationRecord,
   Permissions,
 } from "@open-ic/openchat-botclient-ts";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import ws from "ws";
 import {
@@ -141,18 +141,44 @@ export async function loadModerationReason(
   return ev?.reason;
 }
 
-export function saveModerationEvent(moderated: Moderated) {
-  return db
-    .insert(schema.moderationEvents)
-    .values({
-      scope: keyify(moderated.scope),
-      messageId: moderated.messageId.toString(),
-      eventIndex: moderated.eventIndex,
-      messageIndex: moderated.messageIndex,
-      reason: moderated.reason,
-      timestamp: new Date().toISOString(),
+export async function topOffendersQuery(
+  scope: ChatActionScope
+): Promise<{ senderId: string; count: number }[]> {
+  const scopeKey = keyify(scope);
+  return await db
+    .select({
+      senderId: schema.senderViolations.senderId,
+      count: sql<number>`count(*)`.as("count"),
     })
-    .onConflictDoNothing();
+    .from(schema.senderViolations)
+    .where(eq(schema.senderViolations.scope, scopeKey))
+    .groupBy(schema.senderViolations.senderId)
+    .orderBy(desc(sql<number>`count(*)`))
+    .limit(10);
+}
+
+export function saveModerationEvent(moderated: Moderated) {
+  return db.transaction(async (tx) => {
+    const scopeKey = keyify(moderated.scope);
+    const messageIdStr = moderated.messageId.toString();
+    await tx
+      .insert(schema.moderationEvents)
+      .values({
+        scope: scopeKey,
+        messageId: messageIdStr,
+        eventIndex: moderated.eventIndex,
+        messageIndex: moderated.messageIndex,
+        reason: moderated.reason,
+        timestamp: new Date().toISOString(),
+      })
+      .onConflictDoNothing();
+
+    await tx.insert(schema.senderViolations).values({
+      scope: scopeKey,
+      messageId: messageIdStr,
+      senderId: moderated.senderId,
+    });
+  });
 }
 
 export async function getPolicy(scope: ChatActionScope): Promise<Policy> {

@@ -226,6 +226,14 @@ function schema(): BotDefinition {
         permissions: Permissions.encodePermissions(emptyPermissions),
         params: [],
       },
+      {
+        name: "top_offenders",
+        default_role: "Participant",
+        description:
+          "List the top 10 worst offenders in this scope by messages moderated",
+        permissions: Permissions.encodePermissions(emptyPermissions),
+        params: [],
+      },
     ],
   };
 }

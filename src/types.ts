@@ -25,6 +25,7 @@ export type Moderated = {
   messageId: bigint;
   eventIndex: number;
   messageIndex: number;
+  senderId: string;
 };
 
 export type Moderation = Moderated | NotModerated;
