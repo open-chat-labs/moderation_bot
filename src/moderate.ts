@@ -217,21 +217,6 @@ function categoriesThatBreakThreshold(
   threshold: number,
   scores: OpenAI.Moderation.CategoryScores
 ): CategoryViolation[] {
-  const scoreValues = [
-    scores.harassment,
-    scores["harassment/threatening"],
-    scores.hate,
-    scores["hate/threatening"],
-    scores.illicit,
-    scores["illicit/violent"],
-    scores["self-harm"],
-    scores["self-harm/instructions"],
-    scores["self-harm/intent"],
-    scores.sexual,
-    scores["sexual/minors"],
-    scores.violence,
-    scores["violence/graphic"],
-  ];
   const violating: CategoryViolation[] = [];
   for (const [cat, score] of Object.entries(scores)) {
     if (score >= threshold) {
@@ -243,7 +228,7 @@ function categoriesThatBreakThreshold(
 
 function summariseViolations(violations: CategoryViolation[]): string {
   const msgs: string[] = [
-    "The message crossed the moderation threshold for the following categories:\n",
+    "Message flagged against the following categories:\n",
   ];
   violations.forEach((v) => {
     msgs.push(`${v.category} (${v.score.toFixed(2)})`);
