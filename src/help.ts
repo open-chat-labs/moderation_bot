@@ -19,6 +19,9 @@ function buildHelpText() {
   lines.push("`/explanation`: Configure if and how the bot explains decisions");
   lines.push("`/threshold`: Configure to threshold for general rules");
   lines.push(
+    "`/top_offenders`: Find out who the persistent offenders are in your chat"
+  );
+  lines.push(
     "`/explain`: Explain the reason for moderation on a single message"
   );
   return lines.join("\n");
