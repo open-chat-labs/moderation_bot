@@ -9,12 +9,13 @@ export async function topOffenders(
   const offenders = await withPool(() =>
     topOffendersQuery(client.scope as ChatActionScope)
   );
-  return ephemeralResponse(
-    client,
-    offenders
-      .map((o) => {
-        return `@UserId(${o.senderId})  **${o.count}**`;
-      })
-      .join("\n")
-  );
+  const msg =
+    offenders.length === 0
+      ? "Everyone seems to be behaving themselves impeccably here 😇"
+      : offenders
+          .map((o) => {
+            return `@UserId(${o.senderId})  **${o.count}**`;
+          })
+          .join("\n");
+  return ephemeralResponse(client, msg);
 }
