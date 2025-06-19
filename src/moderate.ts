@@ -263,13 +263,13 @@ export async function generalModeration(
     input: inputs,
   });
   if (moderation.results.length > 0) {
-    console.log("Moderation result: ", moderation.results);
     const result = moderation.results[0];
     const breaking = categoriesThatBreakThreshold(
       policy.threshold,
       result.category_scores
     );
     if (breaking.length > 0) {
+      console.log("Moderation result: ", moderation.results);
       return {
         kind: "moderated",
         messageId,
