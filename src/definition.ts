@@ -40,28 +40,40 @@ export function schema(): BotDefinition {
         name: "resume",
         default_role: "Owner",
         description: "Resume moderation in this chat",
-        permissions: Permissions.encodePermissions(emptyPermissions),
+        permissions: Permissions.encodePermissions({
+          ...emptyPermissions,
+          chat: ["ReadChatSummary"],
+        }),
         params: [],
       },
       {
         name: "pause",
         default_role: "Owner",
         description: "Pause moderation in this chat",
-        permissions: Permissions.encodePermissions(emptyPermissions),
+        permissions: Permissions.encodePermissions({
+          ...emptyPermissions,
+          chat: ["ReadChatSummary"],
+        }),
         params: [],
       },
       {
         name: "status",
         default_role: "Owner",
         description: "Display current configuration in this chat",
-        permissions: Permissions.encodePermissions(emptyPermissions),
+        permissions: Permissions.encodePermissions({
+          ...emptyPermissions,
+          chat: ["ReadChatSummary"],
+        }),
         params: [],
       },
       {
         name: "rules",
         default_role: "Owner",
         description: "Configure rules applied",
-        permissions: Permissions.encodePermissions(emptyPermissions),
+        permissions: Permissions.encodePermissions({
+          ...emptyPermissions,
+          chat: ["ReadChatSummary"],
+        }),
         params: [
           {
             name: "rules",
@@ -90,7 +102,10 @@ export function schema(): BotDefinition {
         name: "explanation",
         default_role: "Owner",
         description: "Configure if and how the bot explains decisions",
-        permissions: Permissions.encodePermissions(emptyPermissions),
+        permissions: Permissions.encodePermissions({
+          ...emptyPermissions,
+          chat: ["ReadChatSummary"],
+        }),
         params: [
           {
             name: "explanation",
@@ -126,7 +141,10 @@ export function schema(): BotDefinition {
         name: "action",
         default_role: "Owner",
         description: "Configure action taken when rules are broken",
-        permissions: Permissions.encodePermissions(emptyPermissions),
+        permissions: Permissions.encodePermissions({
+          ...emptyPermissions,
+          chat: ["ReadChatSummary"],
+        }),
         params: [
           {
             name: "action",
@@ -173,7 +191,10 @@ export function schema(): BotDefinition {
         name: "threshold",
         default_role: "Owner",
         description: "Configure to threshold for general rules",
-        permissions: Permissions.encodePermissions(emptyPermissions),
+        permissions: Permissions.encodePermissions({
+          ...emptyPermissions,
+          chat: ["ReadChatSummary"],
+        }),
         params: [
           {
             name: "threshold",
@@ -196,7 +217,10 @@ export function schema(): BotDefinition {
         name: "explain",
         default_role: "Participant",
         description: "Explain the reason for moderation on a single message",
-        permissions: Permissions.encodePermissions(emptyPermissions),
+        permissions: Permissions.encodePermissions({
+          ...emptyPermissions,
+          chat: ["ReadChatSummary"],
+        }),
         params: [
           {
             name: "message_id",
@@ -226,7 +250,10 @@ export function schema(): BotDefinition {
         name: "top_offenders",
         default_role: "Participant",
         description: "Find out who the persistent offenders are in your chat",
-        permissions: Permissions.encodePermissions(emptyPermissions),
+        permissions: Permissions.encodePermissions({
+          ...emptyPermissions,
+          chat: ["ReadChatSummary"],
+        }),
         params: [],
       },
     ],

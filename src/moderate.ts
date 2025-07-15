@@ -11,6 +11,7 @@ import { getPolicy, saveModerationEvent } from "./db/database";
 import {
   Action,
   CategoryViolation,
+  defaultPolicy,
   Explanation,
   Moderated,
   Moderation,
@@ -155,7 +156,8 @@ export async function moderateMessage(
   eventIndex: number,
   thread?: number
 ): Promise<void> {
-  const policy = await getPolicy(client.scope as ChatActionScope);
+  const policy =
+    (await getPolicy(client.scope as ChatActionScope)) ?? defaultPolicy;
   if (!policy.moderating) {
     console.log("Skipping message as policy.moderating is set to false");
     return;

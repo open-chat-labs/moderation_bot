@@ -10,14 +10,7 @@ import {
 import { and, desc, eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import ws from "ws";
-import {
-  Action,
-  defaultPolicy,
-  Explanation,
-  Moderated,
-  Policy,
-  Rules,
-} from "../types";
+import { Action, Explanation, Moderated, Policy, Rules } from "../types";
 import * as schema from "./schema";
 import { installations } from "./schema";
 
@@ -181,7 +174,9 @@ export function saveModerationEvent(moderated: Moderated) {
   });
 }
 
-export async function getPolicy(scope: ChatActionScope): Promise<Policy> {
+export async function getPolicy(
+  scope: ChatActionScope
+): Promise<Policy | undefined> {
   const location = chatIdentifierToInstallationLocation(scope.chat);
   const locationKey = keyify(location);
   const scopeKey = keyify(scope);
@@ -200,7 +195,7 @@ export async function getPolicy(scope: ChatActionScope): Promise<Policy> {
         threshold: policy.threshold,
         explanation: policy.explanation,
       }
-    : defaultPolicy;
+    : undefined;
 }
 
 export async function getInstallation(

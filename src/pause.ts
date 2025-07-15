@@ -2,10 +2,13 @@ import { BotClient, ChatActionScope } from "@open-ic/openchat-botclient-ts";
 import { APIGatewayProxyResultV2 } from "aws-lambda";
 import { pauseModeration, withPool } from "./db/database";
 import { ephemeralResponse } from "./helpers";
+import { inPublicChat } from "./policy";
 
 export async function pause(
   client: BotClient
 ): Promise<APIGatewayProxyResultV2> {
-  await withPool(() => pauseModeration(client.scope as ChatActionScope));
-  return ephemeralResponse(client, "Moderation has been paused in this chat");
+  return inPublicChat(client, async () => {
+    await withPool(() => pauseModeration(client.scope as ChatActionScope));
+    return ephemeralResponse(client, "Moderation has been paused in this chat");
+  });
 }
