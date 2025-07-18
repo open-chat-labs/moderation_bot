@@ -24,6 +24,7 @@ provider:
     STORAGE_INDEX_CANISTER: ${env:STORAGE_INDEX_CANISTER}
     OPENAI_API_KEY: ${env:OPENAI_API_KEY}
     DATABASE_URL: ${env:DATABASE_URL}
+    BOT_ID: ${env:BOT_ID}
 
 functions:
   botDefinition:

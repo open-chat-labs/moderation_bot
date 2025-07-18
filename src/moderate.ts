@@ -5,6 +5,7 @@ import {
   CommunityIdentifier,
   ImageContent,
   MessageContent,
+  MessageEvent,
 } from "@open-ic/openchat-botclient-ts";
 import OpenAI from "openai";
 import { getPolicy, saveModerationEvent } from "./db/database";
@@ -153,7 +154,8 @@ function extractFromContent(
 
 export async function moderateMessage(
   client: BotClient,
-  eventIndex: number,
+  index: number,
+  event: MessageEvent,
   thread?: number
 ): Promise<void> {
   const policy =
@@ -163,59 +165,51 @@ export async function moderateMessage(
     return;
   }
 
-  const resp = await client.chatEvents(
-    {
-      kind: "chat_events_by_index",
-      eventIndexes: [eventIndex],
-    },
-    thread
-  );
-  if (resp.kind === "success" && resp.events[0].event.kind === "message") {
-    const fromTheBot = resp.events[0].event.sender === process.env.BOT_ID!;
-    if (fromTheBot) {
-      console.log("Message came from the moderator bot - skipping");
-      return;
+  const fromTheBot = event.sender === process.env.BOT_ID!;
+  if (fromTheBot) {
+    console.log("Message came from the moderator bot - skipping");
+    return;
+  }
+
+  const messageId = event.messageId;
+  const messageIndex = event.messageIndex;
+  const eventIndex = index;
+  const senderId = event.sender;
+  const content = extractFromContent(event.content);
+
+  if (content !== undefined) {
+    const [txt, hint, imageUrl] = content;
+
+    let result: Moderation = { kind: "not_moderated" };
+    if (policy.rules !== Rules.CHAT_RULES && txt !== undefined) {
+      result = await generalModeration(
+        client,
+        policy,
+        txt,
+        imageUrl,
+        messageId,
+        eventIndex,
+        messageIndex,
+        senderId
+      );
     }
-
-    const messageId = resp.events[0].event.messageId;
-    const messageIndex = resp.events[0].event.messageIndex;
-    const eventIndex = resp.events[0].index;
-    const senderId = resp.events[0].event.sender;
-    const content = extractFromContent(resp.events[0].event.content);
-    if (content !== undefined) {
-      const [txt, hint, imageUrl] = content;
-
-      let result: Moderation = { kind: "not_moderated" };
-      if (policy.rules !== Rules.CHAT_RULES && txt !== undefined) {
-        result = await generalModeration(
+    if (result.kind === "not_moderated") {
+      if (policy.rules !== Rules.GENERAL_RULES) {
+        result = await chatModerate(
           client,
-          policy,
           txt,
-          imageUrl,
+          hint,
           messageId,
           eventIndex,
           messageIndex,
-          senderId
+          senderId,
+          thread
         );
       }
-      if (result.kind === "not_moderated") {
-        if (policy.rules !== Rules.GENERAL_RULES) {
-          result = await chatModerate(
-            client,
-            txt,
-            hint,
-            messageId,
-            eventIndex,
-            messageIndex,
-            senderId,
-            thread
-          );
-        }
-      }
+    }
 
-      if (result.kind === "moderated") {
-        await messageBreaksTheRules(client, policy, result, thread);
-      }
+    if (result.kind === "moderated") {
+      await messageBreaksTheRules(client, policy, result, thread);
     }
   }
 }
