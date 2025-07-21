@@ -17,6 +17,22 @@ provider:
         - OPTIONS
         - POST
 
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - sqs:SendMessage
+      Resource:
+        Fn::GetAtt: [ModerationQueue, Arn]
+
+    - Effect: Allow
+      Action:
+        - sqs:ReceiveMessage
+        - sqs:DeleteMessage
+        - sqs:GetQueueAttributes
+        - sqs:ChangeMessageVisibility
+      Resource:
+        Fn::GetAtt: [ModerationQueue, Arn]
+
   environment:
     OC_PUBLIC: ${env:OC_PUBLIC}
     IDENTITY_PRIVATE: ${env:IDENTITY_PRIVATE}
@@ -48,6 +64,37 @@ functions:
       - httpApi:
           path: /notify
           method: post
+    environment:
+      MODERATION_QUEUE_URL:
+        Fn::GetAtt: [ModerationQueue, QueueUrl]
+
+  processModeration:
+    handler: src/notify.processModeration
+    timeout: 30
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt: [ModerationQueue, Arn]
+          batchSize: 1
+    environment:
+      NODE_ENV: production
+
+resources:
+  Resources:
+    ModerationQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: moderation-queue
+        VisibilityTimeout: 60 # must be > max Lambda runtime
+        RedrivePolicy:
+          deadLetterTargetArn:
+            Fn::GetAtt: [ModerationDLQ, Arn]
+          maxReceiveCount: 5
+
+    ModerationDLQ:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: moderation-dlq
 
 plugins:
 

@@ -18,6 +18,7 @@
     "typescript": "^5.8.3"
   },
   "dependencies": {
+    "@aws-sdk/client-sqs": "^3.848.0",
     "@neondatabase/serverless": "^1.0.1",
     "@open-ic/openchat-botclient-ts": "^1.0.57",
     "dotenv": "^16.5.0",
