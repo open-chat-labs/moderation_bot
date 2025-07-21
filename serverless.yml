@@ -43,6 +43,7 @@ functions:
 
   notify:
     handler: src/notify.notify
+    timeout: 30
     events:
       - httpApi:
           path: /notify

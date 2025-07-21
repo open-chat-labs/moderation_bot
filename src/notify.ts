@@ -33,13 +33,11 @@ export const notify: APIGatewayProxyHandlerV2 = async (event) => {
         return { statusCode: 200 };
       }
 
-      console.log("Are we getting here?", process.env.BOT_ID);
       if (
         ev.kind === "bot_chat_event" &&
         ev.event.kind === "message" &&
         ev.initiatedBy !== process.env.BOT_ID
       ) {
-        console.log("Are we getting here?");
         await withPool(() =>
           moderateMessage(
             client,

@@ -247,8 +247,6 @@ export async function generalModeration(
   messageIndex: number,
   senderId: string
 ): Promise<Moderation> {
-  console.log("Message text: ", text);
-
   const inputs: OpenAI.ModerationMultiModalInput[] = [{ type: "text", text }];
   if (imageUrl !== undefined) {
     inputs.push({ type: "image_url", image_url: { url: imageUrl } });
@@ -338,43 +336,48 @@ export async function chatModerate(
   return Promise.resolve({ kind: "not_moderated" });
 }
 
-async function applyExplanationStrategy(
+function applyExplanationStrategy(
   client: BotClient,
   policy: Policy,
   moderated: Moderated,
   thread?: number
-) {
-  await saveModerationEvent(moderated);
+): Promise<unknown>[] {
+  const promises: Promise<unknown>[] = [];
+  promises.push(saveModerationEvent(moderated));
   switch (policy.explanation) {
     case Explanation.QUOTE_REPLY: {
-      const msg = await client.createTextMessage(moderated.reason);
-      msg.setRepliesTo(moderated.eventIndex);
-      if (thread !== undefined) {
-        msg.setThread(thread);
-      }
-      await client.sendMessage(msg).then((resp) => {
-        if (resp.kind === "error") {
-          console.log("Sending reply failed with: ", resp);
-        }
-        return resp;
-      });
+      promises.push(
+        client
+          .createTextMessage(moderated.reason)
+          .then((msg) => msg.setRepliesTo(moderated.eventIndex))
+          .then((msg) => {
+            if (thread !== undefined) {
+              return msg.setThread(thread);
+            }
+            return msg;
+          })
+          .then((msg) => client.sendMessage(msg))
+      );
       break;
     }
-    case Explanation.THREAD_REPLY:
-      const msg = await client.createTextMessage(moderated.reason);
-      msg.setFinalised(true);
-      if (thread !== undefined) {
-        msg.setRepliesTo(moderated.eventIndex).setThread(thread);
-      } else {
-        msg.setThread(moderated.messageIndex);
-      }
-      await client.sendMessage(msg).then((resp) => {
-        if (resp.kind === "error") {
-          console.log("Sending reply failed with: ", resp);
-        }
-      });
+    case Explanation.THREAD_REPLY: {
+      promises.push(
+        client
+          .createTextMessage(moderated.reason)
+          .then((msg) => msg.setFinalised(true))
+          .then((msg) => {
+            if (thread !== undefined) {
+              return msg.setRepliesTo(moderated.eventIndex).setThread(thread);
+            } else {
+              return msg.setThread(moderated.messageIndex);
+            }
+          })
+          .then((msg) => client.sendMessage(msg))
+      );
       break;
+    }
   }
+  return promises;
 }
 
 async function messageBreaksTheRules(
@@ -383,27 +386,32 @@ async function messageBreaksTheRules(
   moderated: Moderated,
   thread?: number
 ) {
-  await applyExplanationStrategy(client, policy, moderated, thread);
-  switch (policy.action) {
-    case Action.REACTION:
-      {
-        const resp = await client
-          .addReaction(moderated.messageId, policy.reaction ?? "💩", thread)
-          .catch((err) => console.error("Error reacting to message", err));
-        if (resp?.kind !== "success") {
-          console.error("Error reacting to message: ", resp);
-        }
-      }
-      break;
-    case Action.DELETION:
-      {
-        const resp = await client
-          .deleteMessages([moderated.messageId], thread)
-          .catch((err) => console.error("Error deleting message", err));
-        if (resp?.kind !== "success") {
-          console.error("Error deleting message: ", resp);
-        }
-      }
-      break;
+  // everything that happens when the message breaks the rules can (and should) be done in parallel to minimise the overall
+  // duration (and cost) of the lambda
+  try {
+    const promises: Promise<unknown>[] = applyExplanationStrategy(
+      client,
+      policy,
+      moderated,
+      thread
+    );
+    switch (policy.action) {
+      case Action.REACTION:
+        promises.push(
+          client.addReaction(
+            moderated.messageId,
+            policy.reaction ?? "💩",
+            thread
+          )
+        );
+        break;
+      case Action.DELETION:
+        promises.push(client.deleteMessages([moderated.messageId], thread));
+        break;
+    }
+
+    await Promise.all(promises);
+  } catch (err) {
+    console.error("Error processing moderation violation", err);
   }
 }

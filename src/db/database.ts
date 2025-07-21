@@ -1,4 +1,3 @@
-import { neonConfig, Pool } from "@neondatabase/serverless";
 import {
   ActionScope,
   ChatActionScope,
@@ -8,14 +7,16 @@ import {
   Permissions,
 } from "@open-ic/openchat-botclient-ts";
 import { and, desc, eq, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/neon-serverless";
-import ws from "ws";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
 import { Action, Explanation, Moderated, Policy, Rules } from "../types";
 import * as schema from "./schema";
 import { installations } from "./schema";
 
-neonConfig.webSocketConstructor = ws;
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }, // optional, depends on config
+});
 const db = drizzle({ client: pool, schema });
 
 export type Tx = Parameters<typeof db.transaction>[0] extends (
@@ -151,7 +152,7 @@ export async function topOffendersQuery(
 }
 
 export function saveModerationEvent(moderated: Moderated) {
-  return db.transaction(async (tx) => {
+  return withTransaction(async (tx) => {
     const scopeKey = keyify(moderated.scope);
     const messageIdStr = moderated.messageId.toString();
     await tx
