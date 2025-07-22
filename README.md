@@ -45,3 +45,16 @@ We use the [Drizzle ORM](https://orm.drizzle.team/) for interacting with databas
 `npx serverless deploy --stage prod`: deploy the prod version of lambda to live
 
 `npx serverless logs --function [functionName]  --stage prod --tail`: tails the production logs of a live lambda function
+
+To pull messages from the dead letter queue for the purposes of debug, you can do this:
+
+```
+aws sqs receive-message \
+  --queue-url https://sqs.eu-west-2.amazonaws.com/253040722768/moderation-dlq \
+  --max-number-of-messages 1 \
+  --attribute-names All \
+  --message-attribute-names All \
+  --region eu-west-2
+```
+
+assuming that you have aws cli configured
