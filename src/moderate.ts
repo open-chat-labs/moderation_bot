@@ -117,7 +117,9 @@ async function askOpenAI(
 
 function buildImageUrl(content: ImageContent): string | undefined {
   if (content.blobReference) {
-    return `https://${content.blobReference?.canisterId}.raw.icp0.io/blobs/${content.blobReference?.blobId}`;
+    return `https://${
+      content.blobReference?.canisterId
+    }.raw.icp0.io/blobs/${content.blobReference?.blobId.toString()}`;
   }
 }
 
