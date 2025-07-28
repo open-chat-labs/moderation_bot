@@ -96,8 +96,6 @@ resources:
       Properties:
         QueueName: moderation-dlq
 
-plugins:
-
 build:
   esbuild:
     bundle: true
