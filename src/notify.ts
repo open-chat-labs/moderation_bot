@@ -13,16 +13,23 @@ import { moderateMessage } from "./moderate";
 
 const sqs = new SQSClient({});
 
+type Payload = {
+  encodedBytes: string;
+  signature: string;
+};
+
 // All notify does now is push the event to SQS. This will then deal with retrying for us
 export const notify: APIGatewayProxyHandlerV2 = async (event) => {
   const queueUrl = process.env.MODERATION_QUEUE_URL;
 
   console.log("About to send message to SQS: ", queueUrl, event.body);
-
   await sqs.send(
     new SendMessageCommand({
       QueueUrl: queueUrl,
-      MessageBody: event.body!,
+      MessageBody: JSON.stringify({
+        encodedBytes: event.body!,
+        signature: event.headers["x-oc-signature"] as string,
+      }),
     })
   );
 
@@ -37,8 +44,12 @@ export const processModeration: (e: SQSEvent) => Promise<void> = async (
 ) => {
   console.log("Received a message from SQS: ", event.Records);
   for (const record of event.Records) {
+    const { encodedBytes, signature } = JSON.parse(record.body) as Payload;
+    const rawBytes = Buffer.from(encodedBytes, "base64");
+
     await handleNotification(
-      record.body,
+      signature,
+      rawBytes,
       factory,
       async (client: BotClient, ev: BotEvent, apiGateway: string) => {
         try {
