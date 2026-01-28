@@ -1,23 +1,23 @@
 import {
-  ActionScope,
-  BotClient,
-  ChatActionScope,
-  CommunityIdentifier,
-  ImageContent,
-  MessageContent,
-  MessageEvent,
+    ActionScope,
+    BotClient,
+    ChatActionScope,
+    CommunityIdentifier,
+    ImageContent,
+    MessageContent,
+    MessageEvent,
 } from "@open-ic/openchat-botclient-ts";
 import OpenAI from "openai";
 import { getPolicy, saveModerationEvent } from "./db/database";
 import {
-  Action,
-  CategoryViolation,
-  defaultPolicy,
-  Explanation,
-  Moderated,
-  Moderation,
-  Policy,
-  Rules,
+    Action,
+    CategoryViolation,
+    defaultPolicy,
+    Explanation,
+    Moderated,
+    Moderation,
+    Policy,
+    Rules,
 } from "./types";
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 
@@ -51,369 +51,409 @@ Output format (JSON):
 `;
 
 const userMessage = (
-  ctx: string,
-  rules: string[],
-  hint: string,
-  txt?: string
+    ctx: string,
+    rules: string[],
+    hint: string,
+    txt?: string,
 ) => `
 Chat moderation rules: ${rules.join("\n\n")}
-Message: 
+Message:
 - Type: ${hint}
 - Context: ${ctx}
 - Content: ${txt}
 `;
 
 async function askOpenAI(
-  rules: string[],
-  message: string | undefined,
-  contentHint: string,
-  scope: ActionScope,
-  messageId: bigint,
-  eventIndex: number,
-  messageIndex: number,
-  senderId: string,
-  thread?: number
+    rules: string[],
+    message: string | undefined,
+    contentHint: string,
+    scope: ActionScope,
+    messageId: bigint,
+    eventIndex: number,
+    messageIndex: number,
+    senderId: string,
+    thread?: number,
 ): Promise<Moderation> {
-  const msg = userMessage(
-    thread ? "Thread (not chat)" : "Chat (not thread)",
-    rules,
-    contentHint,
-    message
-  );
-  const prompt: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming =
-    {
-      model: "gpt-4o-mini",
-      messages: [
+    const msg = userMessage(
+        thread ? "Thread (not chat)" : "Chat (not thread)",
+        rules,
+        contentHint,
+        message,
+    );
+    const prompt: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming =
         {
-          role: "system",
-          content: systemPrompt,
-        },
-        {
-          role: "user",
-          content: msg,
-        },
-      ],
-      temperature: 0,
-    };
-  const completion = await openai.chat.completions.create(prompt);
-  if (completion.choices[0].message.content !== undefined) {
-    const json = JSON.parse(completion.choices[0].message.content as string);
-    if (json.allowed) {
-      return { kind: "not_moderated" };
-    } else {
-      return {
-        kind: "moderated",
-        reason: json.reason,
-        scope,
-        messageId,
-        eventIndex,
-        messageIndex,
-        senderId,
-      };
+            model: "gpt-4o-mini",
+            messages: [
+                {
+                    role: "system",
+                    content: systemPrompt,
+                },
+                {
+                    role: "user",
+                    content: msg,
+                },
+            ],
+            temperature: 0,
+        };
+    const completion = await openai.chat.completions.create(prompt);
+    if (completion.choices[0].message.content !== undefined) {
+        const json = JSON.parse(
+            completion.choices[0].message.content as string,
+        );
+        if (json.allowed) {
+            return { kind: "not_moderated" };
+        } else {
+            return {
+                kind: "moderated",
+                reason: json.reason,
+                scope,
+                messageId,
+                eventIndex,
+                messageIndex,
+                senderId,
+            };
+        }
     }
-  }
-  return { kind: "not_moderated" };
+    return { kind: "not_moderated" };
 }
 
 function buildImageUrl(content: ImageContent): string | undefined {
-  if (content.blobReference) {
-    return `https://${
-      content.blobReference?.canisterId
-    }.raw.icp0.io/blobs/${content.blobReference?.blobId.toString()}`;
-  }
+    if (content.blobReference) {
+        return `https://${
+            content.blobReference?.canisterId
+        }.raw.icp0.io/blobs/${content.blobReference?.blobId.toString()}`;
+    }
 }
 
 // It is quite common for chat rules to forbid certain types of message in the main chat but allow
 // it in a thread
 function extractFromContent(
-  content: MessageContent
+    content: MessageContent,
 ): [string | undefined, string, string | undefined] | undefined {
-  switch (content.kind) {
-    case "audio_content":
-      return [content.caption, "Audio message", undefined];
-    case "video_content":
-      return [content.caption, "Video message", undefined];
-    case "crypto_content":
-      return [content.caption, "Crypto transfer", undefined];
-    case "file_content":
-      return [content.caption, "File message", undefined];
-    case "giphy_content":
-      return [content.caption, "Gif message", undefined];
-    case "image_content":
-      return [content.caption, "Image message", buildImageUrl(content)];
-    case "p2p_swap_content":
-      return [content.caption, "Swap message", undefined];
-    case "poll_content":
-      return [content.config.text, "Poll message", undefined];
-    case "prize_content":
-      return [content.caption, "Prize message", undefined];
-    case "text_content":
-      return [content.text, "Text message", undefined];
-    default:
-      return undefined;
-  }
+    switch (content.kind) {
+        case "audio_content":
+            return [content.caption, "Audio message", undefined];
+        case "video_content":
+            return [content.caption, "Video message", undefined];
+        case "crypto_content":
+            return [content.caption, "Crypto transfer", undefined];
+        case "file_content":
+            return [content.caption, "File message", undefined];
+        case "giphy_content":
+            return [content.caption, "Gif message", undefined];
+        case "image_content":
+            return [content.caption, "Image message", buildImageUrl(content)];
+        case "p2p_swap_content":
+            return [content.caption, "Swap message", undefined];
+        case "poll_content":
+            return [content.config.text, "Poll message", undefined];
+        case "prize_content":
+            return [content.caption, "Prize message", undefined];
+        case "text_content":
+            return [content.text, "Text message", undefined];
+        default:
+            return undefined;
+    }
 }
 
 export async function moderateMessage(
-  client: BotClient,
-  index: number,
-  event: MessageEvent,
-  thread?: number
+    client: BotClient,
+    index: number,
+    event: MessageEvent,
+    thread?: number,
+    manual?: boolean,
 ): Promise<void> {
-  const policy =
-    (await getPolicy(client.scope as ChatActionScope)) ?? defaultPolicy;
-  if (!policy.moderating) {
-    console.log("Skipping message as policy.moderating is set to false");
-    return;
-  }
-
-  const fromTheBot = event.sender === process.env.BOT_ID!;
-  if (fromTheBot) {
-    console.log("Message came from the moderator bot - skipping");
-    return;
-  }
-
-  const messageId = event.messageId;
-  const messageIndex = event.messageIndex;
-  const eventIndex = index;
-  const senderId = event.sender;
-  const content = extractFromContent(event.content);
-
-  if (content !== undefined) {
-    const [txt, hint, imageUrl] = content;
-
-    let result: Moderation = { kind: "not_moderated" };
-    if (policy.rules !== Rules.CHAT_RULES && txt !== undefined) {
-      result = await generalModeration(
-        client,
-        policy,
-        txt,
-        imageUrl,
-        messageId,
-        eventIndex,
-        messageIndex,
-        senderId
-      );
-    }
-    if (result.kind === "not_moderated") {
-      if (policy.rules !== Rules.GENERAL_RULES) {
-        result = await chatModerate(
-          client,
-          txt,
-          hint,
-          messageId,
-          eventIndex,
-          messageIndex,
-          senderId,
-          thread
-        );
-      }
+    const policy =
+        (await getPolicy(client.scope as ChatActionScope)) ?? defaultPolicy;
+    if (!policy.moderating && !manual) {
+        console.log("Skipping message as policy.moderating is set to false");
+        return;
     }
 
-    if (result.kind === "moderated") {
-      await messageBreaksTheRules(client, policy, result, thread);
+    console.log("Loaded policy: ", JSON.stringify(policy));
+
+    const fromTheBot = event.sender === process.env.BOT_ID!;
+    if (fromTheBot) {
+        console.log("Message came from the moderator bot - skipping");
+        return;
     }
-  }
+
+    const messageId = event.messageId;
+    const messageIndex = event.messageIndex;
+    const eventIndex = index;
+    const senderId = event.sender;
+    const content = extractFromContent(event.content);
+
+    if (content !== undefined) {
+        const [txt, hint, imageUrl] = content;
+
+        let result: Moderation = { kind: "not_moderated" };
+        if (policy.rules !== Rules.CHAT_RULES && txt !== undefined) {
+            result = await generalModeration(
+                client,
+                policy,
+                txt,
+                imageUrl,
+                messageId,
+                eventIndex,
+                messageIndex,
+                senderId,
+            );
+        }
+        if (result.kind === "not_moderated") {
+            if (policy.rules !== Rules.GENERAL_RULES) {
+                result = await chatModerate(
+                    client,
+                    txt,
+                    hint,
+                    messageId,
+                    eventIndex,
+                    messageIndex,
+                    senderId,
+                    thread,
+                );
+            }
+        }
+
+        if (result.kind === "moderated") {
+            await messageBreaksTheRules(client, policy, result, thread);
+        }
+    }
 }
 
 function categoriesThatBreakThreshold(
-  threshold: number,
-  scores: OpenAI.Moderation.CategoryScores
+    threshold: number,
+    scores: OpenAI.Moderation.CategoryScores,
 ): CategoryViolation[] {
-  const violating: CategoryViolation[] = [];
-  for (const [cat, score] of Object.entries(scores)) {
-    if (score >= threshold) {
-      violating.push({ category: cat, score: Number(score) });
+    const violating: CategoryViolation[] = [];
+    for (const [cat, score] of Object.entries(scores)) {
+        if (score >= threshold) {
+            violating.push({ category: cat, score: Number(score) });
+        }
     }
-  }
-  return violating;
+    return violating;
 }
 
 function summariseViolations(violations: CategoryViolation[]): string {
-  const msgs: string[] = [
-    "Message flagged against the following categories:\n",
-  ];
-  violations.forEach((v) => {
-    msgs.push(`${v.category} (${v.score.toFixed(2)})`);
-  });
-  return msgs.join("\n");
+    const msgs: string[] = [
+        "Message flagged against the following categories:\n",
+    ];
+    violations.forEach((v) => {
+        msgs.push(`${v.category} (${v.score.toFixed(2)})`);
+    });
+    return msgs.join("\n");
 }
 
 export async function generalModeration(
-  client: BotClient,
-  policy: Policy,
-  text: string,
-  imageUrl: string | undefined,
-  messageId: bigint,
-  eventIndex: number,
-  messageIndex: number,
-  senderId: string
+    client: BotClient,
+    policy: Policy,
+    text: string,
+    imageUrl: string | undefined,
+    messageId: bigint,
+    eventIndex: number,
+    messageIndex: number,
+    senderId: string,
 ): Promise<Moderation> {
-  const inputs: OpenAI.ModerationMultiModalInput[] = [{ type: "text", text }];
-  if (imageUrl !== undefined) {
-    inputs.push({ type: "image_url", image_url: { url: imageUrl } });
-  }
+    const inputs: OpenAI.ModerationMultiModalInput[] = [{ type: "text", text }];
+    if (imageUrl !== undefined) {
+        inputs.push({ type: "image_url", image_url: { url: imageUrl } });
+    }
 
-  const moderation = await openai.moderations.create({
-    model: "omni-moderation-latest",
-    input: inputs,
-  });
-  if (moderation.results.length > 0) {
-    const result = moderation.results[0];
-    const breaking = categoriesThatBreakThreshold(
-      policy.threshold,
-      result.category_scores
-    );
-    if (breaking.length > 0) {
-      console.log("Moderation result: ", moderation.results);
-      return {
-        kind: "moderated",
-        messageId,
-        eventIndex,
-        messageIndex,
-        scope: client.scope,
-        reason: summariseViolations(breaking),
-        senderId,
-      };
+    const moderation = await openai.moderations.create({
+        model: "omni-moderation-latest",
+        input: inputs,
+    });
+    if (moderation.results.length > 0) {
+        const result = moderation.results[0];
+        const breaking = categoriesThatBreakThreshold(
+            policy.threshold,
+            result.category_scores,
+        );
+        if (breaking.length > 0) {
+            console.log("Moderation result: ", moderation.results);
+            return {
+                kind: "moderated",
+                messageId,
+                eventIndex,
+                messageIndex,
+                scope: client.scope,
+                reason: summariseViolations(breaking),
+                senderId,
+            };
+        }
+        return { kind: "not_moderated" };
     }
     return { kind: "not_moderated" };
-  }
-  return { kind: "not_moderated" };
 }
 
 async function getRules(client: BotClient): Promise<string[]> {
-  const promises: Promise<string>[] = [];
-  const scope = client.scope;
-  if (scope.isChatScope()) {
-    if (scope.chat.isChannel()) {
-      promises.push(
-        client
-          .communitySummary(new CommunityIdentifier(scope.chat.communityId))
-          .then((resp) => {
-            if (resp.kind === "community_summary" && resp.rules.enabled) {
-              return resp.rules.text;
-            }
-            return "";
-          })
-      );
-    }
-    promises.push(
-      client.chatSummary().then((resp) => {
-        if (resp.kind === "group_chat" && resp.rules.enabled) {
-          return resp.rules.text;
+    const promises: Promise<string>[] = [];
+    const scope = client.scope;
+    if (scope.isChatScope()) {
+        if (scope.chat.isChannel()) {
+            promises.push(
+                client
+                    .communitySummary(
+                        new CommunityIdentifier(scope.chat.communityId),
+                    )
+                    .then((resp) => {
+                        if (
+                            resp.kind === "community_summary" &&
+                            resp.rules.enabled
+                        ) {
+                            return resp.rules.text;
+                        }
+                        return "";
+                    }),
+            );
         }
-        return "";
-      })
-    );
-  }
-  const result = await Promise.all(promises);
-  return result.filter((r) => r !== "");
+        promises.push(
+            client.chatSummary().then((resp) => {
+                if (resp.kind === "group_chat" && resp.rules.enabled) {
+                    return resp.rules.text;
+                }
+                return "";
+            }),
+        );
+    }
+    const result = await Promise.all(promises);
+    return result.filter((r) => r !== "");
 }
 
 export async function chatModerate(
-  client: BotClient,
-  text: string | undefined,
-  contentHint: string,
-  messageId: bigint,
-  eventIndex: number,
-  messageIndex: number,
-  senderId: string,
-  thread?: number
+    client: BotClient,
+    text: string | undefined,
+    contentHint: string,
+    messageId: bigint,
+    eventIndex: number,
+    messageIndex: number,
+    senderId: string,
+    thread?: number,
 ): Promise<Moderation> {
-  const rules = await getRules(client);
-  if (rules.length > 0) {
-    const result = await askOpenAI(
-      rules,
-      text,
-      contentHint,
-      client.scope,
-      messageId,
-      eventIndex,
-      messageIndex,
-      senderId,
-      thread
-    );
-    return result;
-  }
-  return Promise.resolve({ kind: "not_moderated" });
+    const rules = await getRules(client);
+    if (rules.length > 0) {
+        const result = await askOpenAI(
+            rules,
+            text,
+            contentHint,
+            client.scope,
+            messageId,
+            eventIndex,
+            messageIndex,
+            senderId,
+            thread,
+        );
+        return result;
+    }
+    return Promise.resolve({ kind: "not_moderated" });
 }
 
 function applyExplanationStrategy(
-  client: BotClient,
-  policy: Policy,
-  moderated: Moderated,
-  thread?: number
+    client: BotClient,
+    policy: Policy,
+    moderated: Moderated,
+    thread?: number,
 ): Promise<unknown>[] {
-  const promises: Promise<unknown>[] = [];
-  promises.push(saveModerationEvent(moderated));
-  switch (policy.explanation) {
-    case Explanation.QUOTE_REPLY: {
-      promises.push(
-        client
-          .createTextMessage(moderated.reason)
-          .then((msg) => msg.setRepliesTo(moderated.eventIndex))
-          .then((msg) => {
-            if (thread !== undefined) {
-              return msg.setThread(thread);
-            }
-            return msg;
-          })
-          .then((msg) => client.sendMessage(msg))
-      );
-      break;
+    const promises: Promise<unknown>[] = [];
+    promises.push(saveModerationEvent(moderated));
+    console.log(
+        "Applying explanation strategy:",
+        policy.explanation,
+        "thread:",
+        thread,
+    );
+    switch (policy.explanation) {
+        case Explanation.QUOTE_REPLY: {
+            console.log("Adding QUOTE_REPLY promise");
+            promises.push(
+                client
+                    .createTextMessage(moderated.reason)
+                    .then((msg) => msg.setRepliesTo(moderated.eventIndex))
+                    .then((msg) => {
+                        if (thread !== undefined) {
+                            return msg.setThread(thread);
+                        }
+                        return msg;
+                    })
+                    .then((msg) => client.sendMessage(msg)),
+            );
+            break;
+        }
+        case Explanation.THREAD_REPLY: {
+            console.log(
+                "Adding THREAD_REPLY promise, moderated.messageIndex:",
+                moderated.messageIndex,
+            );
+            promises.push(
+                client
+                    .createTextMessage(moderated.reason)
+                    .then((msg) => {
+                        console.log("Created text message");
+                        return msg.setFinalised(true);
+                    })
+                    .then((msg) => {
+                        console.log("Set finalised, thread:", thread);
+                        if (thread !== undefined) {
+                            return msg
+                                .setRepliesTo(moderated.eventIndex)
+                                .setThread(thread);
+                        } else {
+                            return msg.setThread(moderated.messageIndex);
+                        }
+                    })
+                    .then((msg) => {
+                        console.log("About to send thread reply message");
+                        return client.sendMessage(msg);
+                    })
+                    .then((result) => {
+                        console.log("Thread reply sent, result:", result);
+                        return result;
+                    })
+                    .catch((err) => {
+                        console.error("Error sending thread reply:", err);
+                        throw err;
+                    }),
+            );
+            break;
+        }
     }
-    case Explanation.THREAD_REPLY: {
-      promises.push(
-        client
-          .createTextMessage(moderated.reason)
-          .then((msg) => msg.setFinalised(true))
-          .then((msg) => {
-            if (thread !== undefined) {
-              return msg.setRepliesTo(moderated.eventIndex).setThread(thread);
-            } else {
-              return msg.setThread(moderated.messageIndex);
-            }
-          })
-          .then((msg) => client.sendMessage(msg))
-      );
-      break;
-    }
-  }
-  return promises;
+    return promises;
 }
 
 async function messageBreaksTheRules(
-  client: BotClient,
-  policy: Policy,
-  moderated: Moderated,
-  thread?: number
+    client: BotClient,
+    policy: Policy,
+    moderated: Moderated,
+    thread?: number,
 ) {
-  // everything that happens when the message breaks the rules can (and should) be done in parallel to minimise the overall
-  // duration (and cost) of the lambda
-  try {
-    const promises: Promise<unknown>[] = applyExplanationStrategy(
-      client,
-      policy,
-      moderated,
-      thread
-    );
-    switch (policy.action) {
-      case Action.REACTION:
-        promises.push(
-          client.addReaction(
-            moderated.messageId,
-            policy.reaction ?? "💩",
-            thread
-          )
+    // everything that happens when the message breaks the rules can (and should) be done in parallel to minimise the overall
+    // duration (and cost) of the lambda
+    try {
+        const promises: Promise<unknown>[] = applyExplanationStrategy(
+            client,
+            policy,
+            moderated,
+            thread,
         );
-        break;
-      case Action.DELETION:
-        promises.push(client.deleteMessages([moderated.messageId], thread));
-        break;
-    }
+        switch (policy.action) {
+            case Action.REACTION:
+                promises.push(
+                    client.addReaction(
+                        moderated.messageId,
+                        policy.reaction ?? "💩",
+                        thread,
+                    ),
+                );
+                break;
+            case Action.DELETION:
+                promises.push(
+                    client.deleteMessages([moderated.messageId], thread),
+                );
+                break;
+        }
 
-    await Promise.all(promises);
-  } catch (err) {
-    console.error("Error processing moderation violation", err);
-  }
+        await Promise.all(promises);
+    } catch (err) {
+        console.error("Error processing moderation violation", err);
+    }
 }

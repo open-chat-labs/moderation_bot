@@ -3,103 +3,107 @@ service: moderation-bot
 frameworkVersion: "4"
 
 provider:
-  name: aws
-  runtime: nodejs20.x
-  region: eu-west-2
-  httpApi:
-    cors:
-      allowedOrigins:
-        - "*"
-      allowedHeaders:
-        - "*"
-      allowedMethods:
-        - GET
-        - OPTIONS
-        - POST
+    name: aws
+    runtime: nodejs20.x
+    region: eu-west-2
+    httpApi:
+        cors:
+            allowedOrigins:
+                - "*"
+            allowedHeaders:
+                - "*"
+            allowedMethods:
+                - GET
+                - OPTIONS
+                - POST
 
-  iamRoleStatements:
-    - Effect: Allow
-      Action:
-        - sqs:SendMessage
-      Resource:
-        Fn::GetAtt: [ModerationQueue, Arn]
+    iamRoleStatements:
+        - Effect: Allow
+          Action:
+              - sqs:SendMessage
+          Resource:
+              Fn::GetAtt: [ModerationQueue, Arn]
 
-    - Effect: Allow
-      Action:
-        - sqs:ReceiveMessage
-        - sqs:DeleteMessage
-        - sqs:GetQueueAttributes
-        - sqs:ChangeMessageVisibility
-      Resource:
-        Fn::GetAtt: [ModerationQueue, Arn]
+        - Effect: Allow
+          Action:
+              - sqs:ReceiveMessage
+              - sqs:DeleteMessage
+              - sqs:GetQueueAttributes
+              - sqs:ChangeMessageVisibility
+          Resource:
+              Fn::GetAtt: [ModerationQueue, Arn]
 
-  environment:
-    OC_PUBLIC: ${env:OC_PUBLIC}
-    IDENTITY_PRIVATE: ${env:IDENTITY_PRIVATE}
-    IC_HOST: ${env:IC_HOST}
-    STORAGE_INDEX_CANISTER: ${env:STORAGE_INDEX_CANISTER}
-    OPENAI_API_KEY: ${env:OPENAI_API_KEY}
-    DATABASE_URL: ${env:DATABASE_URL}
-    BOT_ID: ${env:BOT_ID}
+    environment:
+        OC_PUBLIC: ${env:OC_PUBLIC}
+        IDENTITY_PRIVATE: ${env:IDENTITY_PRIVATE}
+        IC_HOST: ${env:IC_HOST}
+        STORAGE_INDEX_CANISTER: ${env:STORAGE_INDEX_CANISTER}
+        OPENAI_API_KEY: ${env:OPENAI_API_KEY}
+        DATABASE_URL: ${env:DATABASE_URL}
+        BOT_ID: ${env:BOT_ID}
 
 functions:
-  botDefinition:
-    handler: src/definition.definition
-    events:
-      - httpApi:
-          path: /bot_definition
-          method: get
+    botDefinition:
+        handler: src/definition.definition
+        events:
+            - httpApi:
+                  path: /bot_definition
+                  method: get
 
-  executeCommand:
-    handler: src/execute.command
-    events:
-      - httpApi:
-          path: /execute_command
-          method: post
+    executeCommand:
+        handler: src/execute.command
+        timeout: 30
+        events:
+            - httpApi:
+                  path: /execute_command
+                  method: post
+        environment:
+            MODERATION_QUEUE_URL:
+                Fn::GetAtt: [ModerationQueue, QueueUrl]
 
-  notify:
-    handler: src/notify.notify
-    timeout: 30
-    events:
-      - httpApi:
-          path: /notify
-          method: post
-    environment:
-      MODERATION_QUEUE_URL:
-        Fn::GetAtt: [ModerationQueue, QueueUrl]
+    notify:
+        handler: src/notify.notify
+        timeout: 30
+        events:
+            - httpApi:
+                  path: /notify
+                  method: post
+        environment:
+            MODERATION_QUEUE_URL:
+                Fn::GetAtt: [ModerationQueue, QueueUrl]
 
-  processModeration:
-    handler: src/notify.processModeration
-    timeout: 30
-    events:
-      - sqs:
-          arn:
-            Fn::GetAtt: [ModerationQueue, Arn]
-          batchSize: 1
-    environment:
-      NODE_ENV: production
+    processModeration:
+        handler: src/notify.processModeration
+        timeout: 30
+        events:
+            - sqs:
+                  arn:
+                      Fn::GetAtt: [ModerationQueue, Arn]
+                  batchSize: 1
+        environment:
+            NODE_ENV: production
 
 resources:
-  Resources:
-    ModerationQueue:
-      Type: AWS::SQS::Queue
-      Properties:
-        QueueName: moderation-queue
-        VisibilityTimeout: 60 # must be > max Lambda runtime
-        RedrivePolicy:
-          deadLetterTargetArn:
-            Fn::GetAtt: [ModerationDLQ, Arn]
-          maxReceiveCount: 5
+    Resources:
+        ModerationQueue:
+            Type: AWS::SQS::Queue
+            Properties:
+                QueueName: moderation-queue
+                VisibilityTimeout: 60 # must be > max Lambda runtime
+                RedrivePolicy:
+                    deadLetterTargetArn:
+                        Fn::GetAtt: [ModerationDLQ, Arn]
+                    maxReceiveCount: 5
 
-    ModerationDLQ:
-      Type: AWS::SQS::Queue
-      Properties:
-        QueueName: moderation-dlq
+        ModerationDLQ:
+            Type: AWS::SQS::Queue
+            Properties:
+                QueueName: moderation-dlq
 
 build:
-  esbuild:
-    bundle: true
-    minify: true
-    sourcemap: false
-    target: node20
-    platform: node
+    esbuild:
+        bundle: true
+        minify: true
+        sourcemap: false
+        target: node20
+        platform: node
