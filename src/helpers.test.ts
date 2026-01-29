@@ -2,10 +2,20 @@ import { describe, expect, it } from "vitest";
 import { extractMessageLocation } from "./helpers";
 
 describe("extractMessageLocation", () => {
+    describe("Invalid urls", () => {
+        it("should return undefined for empty url", () => {
+            expect(extractMessageLocation("")).toBeUndefined();
+        });
+
+        it("should return undefined for malformed url", () => {
+            expect(
+                extractMessageLocation("some arbitrary string or other"),
+            ).toBeUndefined();
+        });
+    });
     describe("Group chat URLs", () => {
         it("should extract messageIndex from group chat URL without thread", () => {
-            const url =
-                "https://oc.app/chats/group/abc123-cai/42";
+            const url = "https://oc.app/chats/group/abc123-cai/42";
             const result = extractMessageLocation(url);
 
             expect(result).toEqual({
@@ -14,8 +24,7 @@ describe("extractMessageLocation", () => {
         });
 
         it("should extract messageIndex and threadIndex from group chat URL with thread", () => {
-            const url =
-                "https://oc.app/chats/group/abc123-cai/42/100";
+            const url = "https://oc.app/chats/group/abc123-cai/42/100";
             const result = extractMessageLocation(url);
 
             expect(result).toEqual({
@@ -25,8 +34,7 @@ describe("extractMessageLocation", () => {
         });
 
         it("should handle group chat URLs with different domains", () => {
-            const url =
-                "https://openchat.com/chats/group/xyz789-cai/123/456";
+            const url = "https://openchat.com/chats/group/xyz789-cai/123/456";
             const result = extractMessageLocation(url);
 
             expect(result).toEqual({
@@ -36,8 +44,7 @@ describe("extractMessageLocation", () => {
         });
 
         it("should handle large message index numbers", () => {
-            const url =
-                "https://oc.app/chats/group/test-cai/999999999";
+            const url = "https://oc.app/chats/group/test-cai/999999999";
             const result = extractMessageLocation(url);
 
             expect(result).toEqual({
@@ -110,8 +117,7 @@ describe("extractMessageLocation", () => {
         });
 
         it("should handle URLs with query parameters", () => {
-            const url =
-                "https://oc.app/chats/group/abc123-cai/42?param=value";
+            const url = "https://oc.app/chats/group/abc123-cai/42?param=value";
             const result = extractMessageLocation(url);
 
             expect(result).toEqual({
@@ -120,8 +126,7 @@ describe("extractMessageLocation", () => {
         });
 
         it("should handle URLs with hash fragments", () => {
-            const url =
-                "https://oc.app/chats/group/abc123-cai/42#section";
+            const url = "https://oc.app/chats/group/abc123-cai/42#section";
             const result = extractMessageLocation(url);
 
             expect(result).toEqual({

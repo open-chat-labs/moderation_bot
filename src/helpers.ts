@@ -85,18 +85,22 @@ const channelMessageMatch = match(
 export function extractMessageLocation(
     url: string,
 ): MessageLocation | undefined {
-    const { pathname } = new URL(url);
+    try {
+        const { pathname } = new URL(url);
 
-    // Use || instead of ?? because path-to-regexp returns false (not null/undefined) for no match
-    const urlMatch =
-        groupMessageMatch(pathname) || channelMessageMatch(pathname);
+        // Use || instead of ?? because path-to-regexp returns false (not null/undefined) for no match
+        const urlMatch =
+            groupMessageMatch(pathname) || channelMessageMatch(pathname);
 
-    if (urlMatch) {
-        const { messageIndex, threadIndex } = urlMatch.params;
-        return {
-            messageIndex: Number(messageIndex),
-            ...(threadIndex && { threadIndex: Number(threadIndex) }),
-        };
+        if (urlMatch) {
+            const { messageIndex, threadIndex } = urlMatch.params;
+            return {
+                messageIndex: Number(messageIndex),
+                ...(threadIndex && { threadIndex: Number(threadIndex) }),
+            };
+        }
+    } catch (err) {
+        console.log("Error parsing message url", err);
     }
     return undefined;
 }
