@@ -5,25 +5,33 @@ import {
     MessageEvent,
 } from "@open-ic/openchat-botclient-ts";
 import { APIGatewayProxyResultV2 } from "aws-lambda";
-import { hasUserReported, saveMessageReport, withPool } from "./db/database";
-import { ephemeralResponse } from "./helpers";
+import {
+    getInstallation,
+    hasUserReported,
+    saveMessageReport,
+    withPool,
+    withTransaction,
+} from "./db/database";
+import { factory } from "./factory";
+import { ephemeralResponse, extractMessageLocation } from "./helpers";
 import { moderateMessage } from "./moderate";
 import { inPublicChat } from "./policy";
 
-function extractMessageIndex(url: string): number | undefined {
-    try {
-        const { pathname } = new URL(url);
-        const segments = pathname.split("/").filter(Boolean);
-        const lastSegment = segments.at(-1);
+async function createAutonomousClient(
+    client: BotClient,
+): Promise<BotClient | undefined> {
+    // We don't actually want to use the client derived from the command context because we
+    // want reports to be anonymous. This means that we need to create an autonomous context client
+    const installation = await withTransaction((tx) =>
+        getInstallation(tx, client.scope as ChatActionScope),
+    );
+    if (installation === undefined) return undefined;
 
-        if (!lastSegment) return undefined;
-
-        const index = Number(lastSegment);
-        return Number.isInteger(index) ? index : undefined;
-    } catch {
-        // Invalid URL
-        return undefined;
-    }
+    return factory.createClientInAutonomouseContext(
+        client.scope,
+        installation.apiGateway,
+        installation.grantedAutonomousPermissions,
+    );
 }
 
 export async function report(
@@ -37,25 +45,37 @@ export async function report(
         );
     }
 
-    const messageIndex = extractMessageIndex(url);
-    if (messageIndex === undefined) {
+    const messageLocation = extractMessageLocation(url);
+    if (messageLocation === undefined) {
         return ephemeralResponse(
             client,
-            "I was unable to extract the message index from the message url",
+            "The url you provided doesn't look like a message url to me. Use the context menu on the message you want to report and choose 'Copy message url'.",
+        );
+    } else {
+        console.log("Parsed message location: ", messageLocation);
+    }
+
+    const autonomousClient = await createAutonomousClient(client);
+    if (autonomousClient === undefined) {
+        return ephemeralResponse(
+            client,
+            "The bot does not appear to be installed in this context",
         );
     }
 
-    return inPublicChat(client, async () => {
+    return inPublicChat(autonomousClient, async () => {
         let responseMessage =
             "The message has been reported for moderation. Action will be taken if necessary.";
-        const threadIndex: bigint | undefined = undefined;
         const args: ChatEventsCriteria = {
             kind: "chat_events_window",
-            midPointMessageIndex: messageIndex,
+            midPointMessageIndex: messageLocation.messageIndex,
             maxMessages: 1,
             maxEvents: 1,
         };
-        const resp = await client.chatEvents(args, threadIndex);
+        const resp = await autonomousClient.chatEvents(
+            args,
+            messageLocation.threadIndex,
+        );
         if (resp.kind === "success") {
             const ev = resp.events[0];
             if (ev !== undefined && ev.event.kind === "message") {
@@ -63,12 +83,12 @@ export async function report(
                 const initiator = client.initiator;
                 if (initiator === undefined) {
                     return ephemeralResponse(
-                        client,
+                        autonomousClient,
                         "Unable to identify reporter",
                     );
                 }
                 await withPool(async () => {
-                    const scope = client.scope as ChatActionScope;
+                    const scope = autonomousClient.scope as ChatActionScope;
                     const alreadyReported = await hasUserReported(
                         scope,
                         messageId,
@@ -84,10 +104,10 @@ export async function report(
                     await saveMessageReport(scope, messageId, initiator);
 
                     const result = await moderateMessage(
-                        client,
+                        autonomousClient,
                         ev.index,
                         ev.event as MessageEvent,
-                        threadIndex,
+                        messageLocation.threadIndex,
                         true,
                     );
 
@@ -103,6 +123,6 @@ export async function report(
         } else {
             responseMessage = "Unable to load the requested message";
         }
-        return ephemeralResponse(client, responseMessage);
+        return ephemeralResponse(autonomousClient, responseMessage);
     });
 }

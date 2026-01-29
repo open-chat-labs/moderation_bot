@@ -76,3 +76,8 @@ export type CategoryViolation = {
     category: string;
     score: number;
 };
+
+export type MessageLocation = {
+    messageIndex: number;
+    threadIndex?: number;
+};
