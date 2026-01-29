@@ -167,6 +167,7 @@ export function saveModerationEvent(moderated: Moderated) {
                 messageIndex: moderated.messageIndex,
                 reason: moderated.reason,
                 timestamp: new Date().toISOString(),
+                source: moderated.source,
             })
             .onConflictDoNothing();
 
@@ -179,6 +180,54 @@ export function saveModerationEvent(moderated: Moderated) {
             })
             .onConflictDoNothing();
     });
+}
+
+export async function saveMessageReport(
+    scope: ActionScope,
+    messageId: bigint,
+    reportedBy: string,
+) {
+    await db.insert(schema.messageReports).values({
+        scope: keyify(scope),
+        messageId: messageId.toString(),
+        reportedBy,
+        reportedAt: new Date().toISOString(),
+    });
+}
+
+export async function hasUserReported(
+    scope: ActionScope,
+    messageId: bigint,
+    reportedBy: string,
+): Promise<boolean> {
+    const scopeKey = keyify(scope);
+    const messageIdStr = messageId.toString();
+
+    const report = await db.query.messageReports.findFirst({
+        where: (r, { eq, and }) =>
+            and(
+                eq(r.scope, scopeKey),
+                eq(r.messageId, messageIdStr),
+                eq(r.reportedBy, reportedBy),
+            ),
+    });
+
+    return report !== undefined;
+}
+
+export async function hasBeenModerated(
+    scope: ActionScope,
+    messageId: bigint,
+): Promise<boolean> {
+    const scopeKey = keyify(scope);
+    const messageIdStr = messageId.toString();
+
+    const event = await db.query.moderationEvents.findFirst({
+        where: (e, { eq, and }) =>
+            and(eq(e.scope, scopeKey), eq(e.messageId, messageIdStr)),
+    });
+
+    return event !== undefined;
 }
 
 export async function getPolicy(

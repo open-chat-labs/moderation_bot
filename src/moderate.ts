@@ -8,7 +8,11 @@ import {
     MessageEvent,
 } from "@open-ic/openchat-botclient-ts";
 import OpenAI from "openai";
-import { getPolicy, saveModerationEvent } from "./db/database";
+import {
+    getPolicy,
+    hasBeenModerated,
+    saveModerationEvent,
+} from "./db/database";
 import {
     Action,
     CategoryViolation,
@@ -16,6 +20,7 @@ import {
     Explanation,
     Moderated,
     Moderation,
+    ModerationSource,
     Policy,
     Rules,
 } from "./types";
@@ -72,6 +77,7 @@ async function askOpenAI(
     eventIndex: number,
     messageIndex: number,
     senderId: string,
+    source: ModerationSource,
     thread?: number,
 ): Promise<Moderation> {
     const msg = userMessage(
@@ -111,6 +117,7 @@ async function askOpenAI(
                 eventIndex,
                 messageIndex,
                 senderId,
+                source,
             };
         }
     }
@@ -162,20 +169,18 @@ export async function moderateMessage(
     event: MessageEvent,
     thread?: number,
     manual?: boolean,
-): Promise<void> {
-    const policy =
-        (await getPolicy(client.scope as ChatActionScope)) ?? defaultPolicy;
+): Promise<Moderation> {
+    const scope = client.scope as ChatActionScope;
+    const policy = (await getPolicy(scope)) ?? defaultPolicy;
     if (!policy.moderating && !manual) {
         console.log("Skipping message as policy.moderating is set to false");
-        return;
+        return { kind: "not_moderated" };
     }
-
-    console.log("Loaded policy: ", JSON.stringify(policy));
 
     const fromTheBot = event.sender === process.env.BOT_ID!;
     if (fromTheBot) {
         console.log("Message came from the moderator bot - skipping");
-        return;
+        return { kind: "not_moderated" };
     }
 
     const messageId = event.messageId;
@@ -183,6 +188,11 @@ export async function moderateMessage(
     const eventIndex = index;
     const senderId = event.sender;
     const content = extractFromContent(event.content);
+
+    const alreadyModerated = await hasBeenModerated(scope, messageId);
+    if (alreadyModerated) {
+        return { kind: "already_moderated" };
+    }
 
     if (content !== undefined) {
         const [txt, hint, imageUrl] = content;
@@ -198,6 +208,7 @@ export async function moderateMessage(
                 eventIndex,
                 messageIndex,
                 senderId,
+                manual ? "user_report" : "automated",
             );
         }
         if (result.kind === "not_moderated") {
@@ -210,6 +221,7 @@ export async function moderateMessage(
                     eventIndex,
                     messageIndex,
                     senderId,
+                    manual ? "user_report" : "automated",
                     thread,
                 );
             }
@@ -218,7 +230,9 @@ export async function moderateMessage(
         if (result.kind === "moderated") {
             await messageBreaksTheRules(client, policy, result, thread);
         }
+        return result;
     }
+    return { kind: "not_moderated" };
 }
 
 function categoriesThatBreakThreshold(
@@ -253,6 +267,7 @@ export async function generalModeration(
     eventIndex: number,
     messageIndex: number,
     senderId: string,
+    source: ModerationSource,
 ): Promise<Moderation> {
     const inputs: OpenAI.ModerationMultiModalInput[] = [{ type: "text", text }];
     if (imageUrl !== undefined) {
@@ -279,6 +294,7 @@ export async function generalModeration(
                 scope: client.scope,
                 reason: summariseViolations(breaking),
                 senderId,
+                source,
             };
         }
         return { kind: "not_moderated" };
@@ -328,6 +344,7 @@ export async function chatModerate(
     eventIndex: number,
     messageIndex: number,
     senderId: string,
+    source: ModerationSource,
     thread?: number,
 ): Promise<Moderation> {
     const rules = await getRules(client);
@@ -341,6 +358,7 @@ export async function chatModerate(
             eventIndex,
             messageIndex,
             senderId,
+            source,
             thread,
         );
         return result;

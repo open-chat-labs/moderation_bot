@@ -1,10 +1,11 @@
 import {
     BotClient,
+    ChatActionScope,
     ChatEventsCriteria,
     MessageEvent,
 } from "@open-ic/openchat-botclient-ts";
 import { APIGatewayProxyResultV2 } from "aws-lambda";
-import { withPool } from "./db/database";
+import { hasUserReported, saveMessageReport, withPool } from "./db/database";
 import { ephemeralResponse } from "./helpers";
 import { moderateMessage } from "./moderate";
 import { inPublicChat } from "./policy";
@@ -29,7 +30,6 @@ export async function report(
     client: BotClient,
 ): Promise<APIGatewayProxyResultV2> {
     const url = client.stringArg("message_url");
-    console.log("Reporting url: ", url);
     if (url === undefined) {
         return ephemeralResponse(
             client,
@@ -38,9 +38,6 @@ export async function report(
     }
 
     const messageIndex = extractMessageIndex(url);
-
-    console.log("Extracted messageIndex: ", messageIndex);
-
     if (messageIndex === undefined) {
         return ephemeralResponse(
             client,
@@ -58,22 +55,47 @@ export async function report(
             maxMessages: 1,
             maxEvents: 1,
         };
-        console.log("Getting the relevant event from OC", args);
         const resp = await client.chatEvents(args, threadIndex);
-        console.log("Got the relevant event from OC", JSON.stringify(resp));
         if (resp.kind === "success") {
             const ev = resp.events[0];
             if (ev !== undefined && ev.event.kind === "message") {
-                console.log("About to moderate the message");
-                await withPool(() =>
-                    moderateMessage(
+                const messageId = ev.event.messageId;
+                const initiator = client.initiator;
+                if (initiator === undefined) {
+                    return ephemeralResponse(
+                        client,
+                        "Unable to identify reporter",
+                    );
+                }
+                await withPool(async () => {
+                    const scope = client.scope as ChatActionScope;
+                    const alreadyReported = await hasUserReported(
+                        scope,
+                        messageId,
+                        initiator,
+                    );
+
+                    if (alreadyReported) {
+                        responseMessage =
+                            "You have already reported this message";
+                        return;
+                    }
+
+                    await saveMessageReport(scope, messageId, initiator);
+
+                    const result = await moderateMessage(
                         client,
                         ev.index,
                         ev.event as MessageEvent,
                         threadIndex,
                         true,
-                    ),
-                );
+                    );
+
+                    if (result.kind === "already_moderated") {
+                        responseMessage =
+                            "This message has already been moderated but your report has been noted";
+                    }
+                });
             } else {
                 responseMessage =
                     "Requested message is not of the expected type";
