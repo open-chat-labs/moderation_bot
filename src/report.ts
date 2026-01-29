@@ -51,8 +51,6 @@ export async function report(
             client,
             "The url you provided doesn't look like a message url to me. Use the context menu on the message you want to report and choose 'Copy message url'.",
         );
-    } else {
-        console.log("Parsed message location: ", messageLocation);
     }
 
     const autonomousClient = await createAutonomousClient(client);
@@ -64,17 +62,21 @@ export async function report(
     }
 
     return inPublicChat(autonomousClient, async () => {
+        let threadRootMessageIndex = messageLocation.threadIndex
+            ? messageLocation.messageIndex
+            : undefined;
         let responseMessage =
             "The message has been reported for moderation. Action will be taken if necessary.";
         const args: ChatEventsCriteria = {
             kind: "chat_events_window",
-            midPointMessageIndex: messageLocation.messageIndex,
+            midPointMessageIndex:
+                messageLocation.threadIndex ?? messageLocation.messageIndex,
             maxMessages: 1,
             maxEvents: 1,
         };
         const resp = await autonomousClient.chatEvents(
             args,
-            messageLocation.threadIndex,
+            threadRootMessageIndex,
         );
         if (resp.kind === "success") {
             const ev = resp.events[0];
@@ -107,7 +109,7 @@ export async function report(
                         autonomousClient,
                         ev.index,
                         ev.event as MessageEvent,
-                        messageLocation.threadIndex,
+                        threadRootMessageIndex,
                         true,
                     );
 
