@@ -3,13 +3,12 @@ import { APIGatewayProxyResultV2 } from "aws-lambda";
 import {
   updateActionPolicy,
   updateExplanationPolicy,
-  updateRulesPolicy,
   updateThreshold,
   withPool,
 } from "./db/database";
 import { ephemeralResponse } from "./helpers";
 import { inPublicChat } from "./policy";
-import { Action, Explanation, Rules } from "./types";
+import { Action, Explanation } from "./types";
 
 export async function explanation(
   client: BotClient
@@ -25,24 +24,6 @@ export async function explanation(
     client,
     "The moderation explanation strategy in this chat has been updated."
   );
-}
-
-export async function rules(
-  client: BotClient
-): Promise<APIGatewayProxyResultV2> {
-  return inPublicChat(client, async () => {
-    const rules = client.integerArg("rules") ?? 0n;
-    await withPool(() =>
-      updateRulesPolicy(
-        client.scope as ChatActionScope,
-        rules as unknown as Rules
-      )
-    );
-    return ephemeralResponse(
-      client,
-      "The moderation rules in this chat have been updated."
-    );
-  });
 }
 
 export async function action(

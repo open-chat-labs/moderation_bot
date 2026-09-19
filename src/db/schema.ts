@@ -92,7 +92,6 @@ export const policy = pgTable(
         moderating: boolean().notNull(),
         threshold: real().notNull(),
         explanation: smallint().notNull(),
-        rules: smallint().notNull(),
         action: smallint().notNull(),
         reaction: text(),
     },

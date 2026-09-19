@@ -1,6 +1,6 @@
 import { commandNotFound } from "@open-ic/openchat-botclient-ts";
 import type { APIGatewayProxyHandlerV2 } from "aws-lambda";
-import { action, explanation, rules, threshold } from "./configure";
+import { action, explanation, threshold } from "./configure";
 import { explain } from "./explain";
 import { help } from "./help";
 import { badRequest, withBotClient } from "./helpers";
@@ -21,8 +21,6 @@ export const command: APIGatewayProxyHandlerV2 = async (event) => {
                 return pause(client);
             case "status":
                 return status(client);
-            case "rules":
-                return rules(client);
             case "action":
                 return action(client);
             case "threshold":

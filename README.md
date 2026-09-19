@@ -1,20 +1,20 @@
 # OpenChat moderation bot
 
-This bot can be installed into an OpenChat community or group to provide AI driven automated content moderation.
+This bot can be installed into an OpenChat community or group to check messages against the chat's own rules.
 
-It can be configured to apply general common sense rules, or to attempt to interpret the community or chat rules or both. For the general content moderation, the bot uses the OpenAI moderation api which uses a widely applicable [set of content policies](https://platform.openai.com/docs/guides/moderation#content-classifications).
+It reads the enabled rules text of the group, or of the community and the channel, and treats each line as one rule. It asks [TypeSafe's](https://typesafe.ai) Jev model how likely it is that a message breaks each rule, in a single call per message. A message is flagged when any rule's score is at or above the chat's threshold. OpenChat already applies general content moderation to public messages, so the bot does not repeat it.
 
-It is also possible to configure how the bot behaves when it decides that a message violates the rules it is applying. It can either react to the message with a custom emoji that you define or it can delete the message. In the future we can extend this to add more actions. For example, it might be desirable to give a user the benefit of the doubt once or twice and then gradually escalate up to and including ejecting that user from the community or group.
+It is also possible to configure how the bot behaves when it decides that a message violates the rules it is applying. It can either react to the message with a custom emoji that you define or it can delete the message. Start with reactions. Jev reads message text literally, so a message can try to talk it out of a flag, and a bad call is easier to undo when the bot only reacts. In the future we can extend this to add more actions. For example, it might be desirable to give a user the benefit of the doubt once or twice and then gradually escalate up to and including ejecting that user from the community or group.
 
-And finally it is also possible to configure if and how the bot explains its decisions. It can either offer no explanation, it can quote reply to the offending message with the explanation, or it can reply in a thread with the explanation.
+And finally it is also possible to configure if and how the bot explains its decisions. It can either offer no explanation, it can quote reply to the offending message with the explanation, or it can reply in a thread with the explanation. The explanation names each broken rule, whether it is a community, channel or group rule, and its score, e.g. `It looks like this message broke the community rule "No promo links" (0.94 confidence)`.
 
-When applying the general moderation rules it is also possible to adjust the threshold that a message must cross (in any category) to be considered unsafe. This allows you some control over how strict or permissive the bot is in this mode. It would be possible to offer finer grained control over this but initially we are attempting to strike a balance between configurability and simplicity.
+`/threshold` sets how strict the bot is. Higher values are more permissive. The default is 0.8.
 
 ## Privacy
 
-It is important to realise that this bot must be given permission to read all messages in a chat in order to function. Furthermore, it will be sending the content of each message to OpenAI's apis (albeit anonymously). As a community or group owner, you must decide for yourself whether this is an acceptable state of affairs and decide whether to install this bot or not accordingly.
+This bot must be given permission to read all messages in a chat in order to function. In public chats with rules enabled, it sends the content of each message, its type and whether it is in a thread to TypeSafe (without the sender's identity). As a community or group owner, you must decide for yourself whether that is acceptable before installing the bot.
 
-Note that this bot will not operate in private contexts by default. The dev team are still working on the best way to allow bots to operate in private contexts if this is explicitly requested.
+The bot never sends messages from private chats, or from chats with no rules enabled, anywhere. If TypeSafe can't be reached, the message is left alone.
 
 ## Commands
 
@@ -23,11 +23,10 @@ You can use the following commands to interact with this bot:
 `/help`: Display this summary of commands  
 `/pause`: Pauses moderation in this chat  
 `/resume`: Resumes moderation in this chat  
-`/status`: Display current configuration in this chat  
-`/rules`: Configure rules applied  
+`/status`: Display current configuration and the rules being checked in this chat  
 `/action`: Configure action taken when rules are broken  
 `/explanation`: Configure if and how the bot explains decisions  
-`/threshold`: Configure to threshold for general rules  
+`/threshold`: Configure how strictly the chat rules are applied  
 `/explain`: Explain the reason for moderation on a single message
 
 ### Technical stuff

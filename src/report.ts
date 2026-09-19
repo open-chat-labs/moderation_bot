@@ -17,7 +17,7 @@ import { ephemeralResponse, extractMessageLocation } from "./helpers";
 import { moderateMessage } from "./moderate";
 import { inPublicChat } from "./policy";
 
-async function createAutonomousClient(
+export async function createAutonomousClient(
     client: BotClient,
 ): Promise<BotClient | undefined> {
     // We don't actually want to use the client derived from the command context because we

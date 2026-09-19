@@ -9,7 +9,7 @@ import {
 import { and, desc, eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { Action, Explanation, Moderated, Policy, Rules } from "../types";
+import { Action, Explanation, Moderated, Policy } from "../types";
 import * as schema from "./schema";
 import { installations } from "./schema";
 
@@ -77,22 +77,9 @@ function defaultPolicyRecord(scope: ChatActionScope) {
         moderating: true,
         threshold: 0.8,
         explanation: Explanation.NONE,
-        rules: Rules.GENERAL_RULES,
         action: Action.REACTION,
         reaction: "💩",
     };
-}
-
-export function updateRulesPolicy(scope: ChatActionScope, rules: Rules) {
-    return db
-        .insert(schema.policy)
-        .values({ ...defaultPolicyRecord(scope), rules })
-        .onConflictDoUpdate({
-            target: [schema.policy.location, schema.policy.scope],
-            set: {
-                rules,
-            },
-        });
 }
 
 export function updateThreshold(scope: ChatActionScope, threshold: number) {
@@ -245,7 +232,6 @@ export async function getPolicy(
     return policy
         ? {
               moderating: policy.moderating,
-              rules: policy.rules,
               action: policy.action,
               reaction: policy.reaction == null ? undefined : policy.reaction,
               threshold: policy.threshold,
@@ -301,7 +287,21 @@ export async function saveInstallation(
 }
 
 export async function uninstall(location: InstallationLocation) {
-    const key = keyify(location);
+    await deleteInstallation(keyify(location));
+}
+
+export function installationKey(location: InstallationLocation): string {
+    return keyify(location);
+}
+
+export async function listInstallationKeys(): Promise<string[]> {
+    const rows = await db
+        .select({ location: installations.location })
+        .from(installations);
+    return rows.map((r) => r.location);
+}
+
+export async function deleteInstallation(key: string) {
     await db.delete(installations).where(eq(installations.location, key));
 }
 

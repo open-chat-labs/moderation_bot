@@ -48,15 +48,8 @@ export enum Explanation {
     THREAD_REPLY = 2,
 }
 
-export enum Rules {
-    GENERAL_RULES = 0,
-    CHAT_RULES = 1,
-    GENERAL_AND_CHAT_RULES = 2,
-}
-
 export type Policy = {
     moderating: boolean;
-    rules: Rules;
     action: Action;
     reaction?: string;
     threshold: number;
@@ -65,16 +58,10 @@ export type Policy = {
 
 export const defaultPolicy: Policy = {
     moderating: true,
-    rules: Rules.GENERAL_RULES,
     action: Action.REACTION,
     reaction: "💩",
     threshold: 0.8,
     explanation: Explanation.NONE,
-};
-
-export type CategoryViolation = {
-    category: string;
-    score: number;
 };
 
 export type MessageLocation = {

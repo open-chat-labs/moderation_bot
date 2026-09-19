@@ -69,8 +69,8 @@ export const processModeration: (e: SQSEvent) => Promise<void> = async (
                         const location = ev.location;
                         const record = new InstallationRecord(
                             apiGateway,
-                            ev.grantedAutonomousPermissions,
                             ev.grantedCommandPermissions,
+                            ev.grantedAutonomousPermissions,
                             timestamp,
                         );
                         await withPool(() =>

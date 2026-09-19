@@ -38,7 +38,7 @@ provider:
         IDENTITY_PRIVATE: ${env:IDENTITY_PRIVATE}
         IC_HOST: ${env:IC_HOST}
         STORAGE_INDEX_CANISTER: ${env:STORAGE_INDEX_CANISTER}
-        OPENAI_API_KEY: ${env:OPENAI_API_KEY}
+        TYPESAFE_API_KEY: ${env:TYPESAFE_API_KEY}
         DATABASE_URL: ${env:DATABASE_URL}
         BOT_ID: ${env:BOT_ID}
 

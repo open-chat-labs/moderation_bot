@@ -17,7 +17,7 @@ const emptyPermissions = {
 export function schema(): BotDefinition {
     return {
         description:
-            "This bot will perform automated moderation in your community. \n\nIt can be configured to apply general purpose moderation according to [OpenAI's standard content classifications](https://platform.openai.com/docs/guides/moderation#content-classifications) and also to account for the specific rules in your groups and communities. \n\nIf a message is found to violate the rules, you can configure the bot to either delete the message immediately or just add the reaction of your choice to the message. This is useful so that you can get a feel for how the bot behaves before you allow it to start deleting messages. In the future we can add more sophisticated responses. e.g. it will be possible to warn people one or more times before deleting their messages and to ultimately block persistent offenders.\n\nNote that this bot uses OpenAI's moderation and completiong APIs for classification. This means that message data will be sent to OpenAI so you should only trust this bot to the extent that you trust OpenAI.",
+            "This bot checks messages in public groups and channels against your chat's own rules. In a channel it checks the community rules and the channel rules. Each line of your rules text counts as one rule.\n\nIf a message breaks a rule, the bot can either add a reaction of your choice or delete the message. Start with reactions to see how the bot behaves before you let it delete. A message can try to talk the bot out of flagging it, so deletion is not foolproof.\n\nThe bot uses TypeSafe's Jev model to score each message against each rule. Message content from public chats with rules enabled is sent to TypeSafe, so only install this bot if you are happy with that. Private chats and chats with no rules are never sent anywhere.",
         autonomous_config: {
             permissions: Permissions.encodePermissions({
                 ...emptyPermissions,
@@ -59,44 +59,13 @@ export function schema(): BotDefinition {
             {
                 name: "status",
                 default_role: "Owner",
-                description: "Display current configuration in this chat",
+                description:
+                    "Display current configuration and the rules being checked in this chat",
                 permissions: Permissions.encodePermissions({
                     ...emptyPermissions,
                     chat: ["ReadChatSummary"],
                 }),
                 params: [],
-            },
-            {
-                name: "rules",
-                default_role: "Owner",
-                description: "Configure rules applied",
-                permissions: Permissions.encodePermissions({
-                    ...emptyPermissions,
-                    chat: ["ReadChatSummary"],
-                }),
-                params: [
-                    {
-                        name: "rules",
-                        required: true,
-                        description: "The rules used to moderate messages",
-                        placeholder:
-                            "Select the rules to use to moderate messages in this chat",
-                        param_type: {
-                            IntegerParam: {
-                                min_value: 0n,
-                                max_value: 2n,
-                                choices: [
-                                    { name: "General rules", value: 0n },
-                                    { name: "Chat rules", value: 1n },
-                                    {
-                                        name: "General rules and chat rules",
-                                        value: 2n,
-                                    },
-                                ],
-                            },
-                        },
-                    },
-                ],
             },
             {
                 name: "explanation",
@@ -191,7 +160,7 @@ export function schema(): BotDefinition {
             {
                 name: "threshold",
                 default_role: "Owner",
-                description: "Configure to threshold for general rules",
+                description: "Configure how strictly the chat rules are applied",
                 permissions: Permissions.encodePermissions({
                     ...emptyPermissions,
                     chat: ["ReadChatSummary"],
@@ -201,7 +170,7 @@ export function schema(): BotDefinition {
                         name: "threshold",
                         required: true,
                         description:
-                            "This is the category threshold above which a message will be considered unacceptable. It should be a value between 0 and 1 with 0 being the most strict and 1 being the most permissive.",
+                            "A message is flagged when its score against any rule is at or above this value. It should be between 0 and 1, with 0 the most strict and 1 the most permissive.",
                         placeholder:
                             "Enter a threshold value. 0.8 is probably a good default.",
                         param_type: {
