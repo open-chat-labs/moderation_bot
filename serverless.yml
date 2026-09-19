@@ -83,6 +83,11 @@ functions:
         environment:
             NODE_ENV: production
 
+    keepAlive:
+        handler: src/keepalive.ping
+        events:
+            - schedule: rate(1 day)
+
 resources:
     Resources:
         ModerationQueue:

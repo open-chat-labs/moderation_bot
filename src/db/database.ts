@@ -330,3 +330,7 @@ function keyify(thing: unknown): string {
 export function unkeyify(key: string): string {
     return Buffer.from(key, "base64url").toString("utf8");
 }
+
+export function keepAlive() {
+    return db.execute(sql`select 1`);
+}
